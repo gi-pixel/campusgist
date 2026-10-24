@@ -3,7 +3,8 @@ import type { Database } from '@/lib/supabase/types'
 
 export type Post = Database['public']['Tables']['posts']['Row'] & {
   images?: string[] | null
-  image_url?: string | null // <-- Added this to support old posts
+  image_url?: string | null 
+   avatar_emoji?: string | null
 }
 
 export async function fetchPosts(params: {

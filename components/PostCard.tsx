@@ -4,10 +4,12 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { HeartIcon, CommentIcon, SendIcon, MoreIcon } from './icons'
 import { Trash2, Link as LinkIcon, Flag, Check, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { resolveEmoji } from '@/lib/avatar'
 import type { Post } from '@/lib/feed'
 import { ImageCarousel } from './ImageCarousel'
 import { EditPostModal } from './EditPostModal'
+import { resolveEmoji, emojiForAuthor } from '@/lib/avatar'
+
+
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -29,7 +31,7 @@ export function PostCard({
   onOpenComments: (post: Post) => void
 }) {
   const supabase = useMemo(() => createClient(), [])
-  const [emoji] = useState(() => resolveEmoji())
+  const [myEmoji] = useState(() => resolveEmoji())
   const [showMenu, setShowMenu] = useState(false)
   const [copied, setCopied] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -129,6 +131,7 @@ export function PostCard({
   }
 
   const isAuthor = post.author_id === currentUserId
+  const emoji = post.avatar_emoji ?? (isAuthor ? myEmoji : emojiForAuthor(post.author_id))
   const canEdit = isAuthor && Date.now() - new Date(post.created_at).getTime() < 5 * 60 * 1000
 
   // Handle both old (single) and new (array) images

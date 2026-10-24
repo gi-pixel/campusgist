@@ -23,3 +23,10 @@ export function resolveEmoji(): string {
   storeEmoji(random)
   return random
 }
+
+export function emojiForAuthor(authorId?: string | null): string {
+  const id = authorId ?? ''
+  let hash = 0
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0
+  return EMOJIS[hash % EMOJIS.length]
+}

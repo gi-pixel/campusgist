@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/lib/supabase/types'
+import { resolveEmoji, emojiForAuthor } from '@/lib/avatar'
+
 
 type PostCategory = Database['public']['Enums']['post_category']
 
@@ -41,7 +43,9 @@ export async function createPost(params: {
       author_id: user.id,
       content: params.content,
       category: params.category,
-      images: imageUrls, // saving the array
+      images: imageUrls,
+      avatar_emoji: resolveEmoji(),
+ // saving the array
     })
     .select('id')
     .single()

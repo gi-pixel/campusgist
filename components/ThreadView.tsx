@@ -3,9 +3,9 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { resolveEmoji } from '@/lib/avatar'
 import { PostCard } from './PostCard'
 import type { Post } from '@/lib/feed'
+import { resolveEmoji, emojiForAuthor } from '@/lib/avatar'
 
 function timeAgo(dateStr?: string) {
   if (!dateStr) return 'now'
@@ -106,7 +106,7 @@ export function ThreadView({
 
     const { data, error } = await supabase
       .from('replies')
-      .insert({ post_id: postId, author_id: user.id, content: content.trim() })
+      .insert({ post_id: postId, author_id: user.id, content: content.trim(), avatar_emoji: emoji, })
       .select()
       .single()
 
@@ -170,7 +170,7 @@ export function ThreadView({
                 className="group flex gap-3 border-b border-[#2a2a2a] py-4 last:border-0"
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#2a2a2a] text-base">
-                  {emoji}
+                  {reply.avatar_emoji ?? (isReplyAuthor ? emoji : emojiForAuthor(reply.author_id))}
                 </div>
 
                 <div className="min-w-0 flex-1">
