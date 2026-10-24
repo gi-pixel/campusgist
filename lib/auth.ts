@@ -1,0 +1,15 @@
+import { createClient } from '@/lib/supabase/client'
+
+export async function ensureAnonymousSession() {
+  const supabase = createClient()
+
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session) return session
+
+  const { data, error } = await supabase.auth.signInAnonymously()
+  if (error) {
+    console.error('Anonymous sign-in failed:', error.message)
+    throw error
+  }
+  return data.session
+}
