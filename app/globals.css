@@ -34,3 +34,19 @@ body {
     scrollbar-width: none;
   }
 }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation; /* no double-tap zoom */
+}
+
+body {
+  overflow-x: hidden;          /* no sideways wobble */
+  overscroll-behavior-y: none; /* no rubber-band bounce */
+  -webkit-tap-highlight-color: transparent;
+}
+
+img {
+  -webkit-user-drag: none;
+}

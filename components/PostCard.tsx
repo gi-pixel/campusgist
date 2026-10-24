@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { HeartIcon, CommentIcon, SendIcon, MoreIcon } from './icons'
-import { Trash2, Link as LinkIcon, Flag, Check } from 'lucide-react'
+import { Trash2, Link as LinkIcon, Flag, Check, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { resolveEmoji } from '@/lib/avatar'
 import type { Post } from '@/lib/feed'
 import { ImageCarousel } from './ImageCarousel'
+import { EditPostModal } from './EditPostModal'
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -27,17 +28,26 @@ export function PostCard({
   currentUserId: string
   onOpenComments: (post: Post) => void
 }) {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const [emoji] = useState(() => resolveEmoji())
   const [showMenu, setShowMenu] = useState(false)
   const [copied, setCopied] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
+  const [content, setContent] = useState(post.content)
+  const [editedAt, setEditedAt] = useState<string | null>(post.edited_at ?? null)
+  const [editing, setEditing] = useState(false)
+
   const [likes, setLikes] = useState(post.like_count || 0)
   const [isLiked, setIsLiked] = useState(false)
   const [loadingLike, setLoadingLike] = useState(false)
 
-  // Keep the count in sync when realtime updates arrive from the Feed
+  // Stay in sync with realtime updates pushed down from the feed
+  useEffect(() => {
+    setContent(post.content)
+    setEditedAt(post.edited_at ?? null)
+  }, [post.content, post.edited_at])
+
   useEffect(() => {
     setLikes(post.like_count || 0)
   }, [post.like_count])
@@ -75,16 +85,16 @@ export function PostCard({
     setLikes(isLiked ? likes - 1 : likes + 1)
 
     try {
-    const { error } = isLiked
+      const { error } = isLiked
         ? await supabase.from('likes').delete().match({ post_id: post.id, user_id: currentUserId })
         : await supabase.from('likes').insert({ post_id: post.id, user_id: currentUserId })
-    if (error) throw error
+      if (error) throw error
     } catch (err) {
-    console.error('Like failed:', err)
-    setIsLiked(prevIsLiked)
-    setLikes(prevLikes)
+      console.error('Like failed:', err)
+      setIsLiked(prevIsLiked)
+      setLikes(prevLikes)
     } finally {
-    setLoadingLike(false)
+      setLoadingLike(false)
     }
   }
 
@@ -119,6 +129,7 @@ export function PostCard({
   }
 
   const isAuthor = post.author_id === currentUserId
+  const canEdit = isAuthor && Date.now() - new Date(post.created_at).getTime() < 5 * 60 * 1000
 
   // Handle both old (single) and new (array) images
   const displayImages = post.images?.length
@@ -127,23 +138,27 @@ export function PostCard({
       ? [post.image_url]
       : []
 
+  const menuItem =
+    'flex w-full items-center justify-between px-4 py-2.5 text-[13px] font-medium transition-colors hover:bg-[#262626]'
+
   return (
     <article
       onClick={() => onOpenComments(post)}
-      className="cursor-pointer px-4 py-4 transition-colors hover:bg-white/[0.02] md:px-5"
+      className="cursor-pointer px-4 py-3 transition-colors hover:bg-white/[0.02]"
     >
-      <div className="flex gap-3">
+      <div className="flex gap-2.5">
         {/* Avatar */}
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2a2a2a] text-xl">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#2a2a2a] text-lg">
           {emoji}
         </div>
 
         <div className="min-w-0 flex-1">
           {/* Header */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-[15px] font-semibold text-white">anon</span>
-              <span className="text-[14px] text-[#6b6b6b]">{timeAgo(post.created_at)}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[14px] font-semibold text-white">anon</span>
+              <span className="text-[13px] text-[#6b6b6b]">{timeAgo(post.created_at)}</span>
+              {editedAt && <span className="text-[13px] text-[#6b6b6b]">· edited</span>}
             </div>
 
             {/* Menu */}
@@ -154,36 +169,53 @@ export function PostCard({
                   setShowMenu(!showMenu)
                 }}
                 aria-label="More options"
-                className="-mr-1.5 flex h-8 w-8 items-center justify-center rounded-full text-[#6b6b6b] transition-colors hover:bg-[#222] hover:text-white"
+                className="-mr-1 flex h-7 w-7 items-center justify-center rounded-full text-[#6b6b6b] transition-colors hover:bg-[#222] hover:text-white"
               >
-                <MoreIcon className="h-5 w-5" />
+                <MoreIcon className="h-4 w-4" />
               </button>
 
               {showMenu && (
-                <div className="absolute right-0 top-9 z-50 w-52 overflow-hidden rounded-2xl border border-[#2a2a2a] bg-[#1e1e1e] shadow-2xl">
+                <div className="absolute right-0 top-8 z-50 w-48 overflow-hidden rounded-2xl border border-[#2a2a2a] bg-[#1e1e1e] shadow-2xl">
                   <button
                     onClick={(e) => {
                       handleShare(e)
                       setShowMenu(false)
                     }}
-                    className="flex w-full items-center justify-between px-4 py-3 text-[14px] font-medium text-white transition-colors hover:bg-[#262626]"
+                    className={`${menuItem} text-white`}
                   >
-                    Copy link <LinkIcon size={16} />
+                    Copy link <LinkIcon size={15} />
                   </button>
 
                   <div className="h-px bg-[#2a2a2a]" />
 
                   {isAuthor ? (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleDelete()
-                        setShowMenu(false)
-                      }}
-                      className="flex w-full items-center justify-between px-4 py-3 text-[14px] font-medium text-[#ff4d6d] transition-colors hover:bg-[#262626]"
-                    >
-                      Delete <Trash2 size={16} />
-                    </button>
+                    <>
+                      {canEdit && (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setEditing(true)
+                              setShowMenu(false)
+                            }}
+                            className={`${menuItem} text-white`}
+                          >
+                            Edit <Pencil size={15} />
+                          </button>
+                          <div className="h-px bg-[#2a2a2a]" />
+                        </>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDelete()
+                          setShowMenu(false)
+                        }}
+                        className={`${menuItem} text-[#ff4d6d]`}
+                      >
+                        Delete <Trash2 size={15} />
+                      </button>
+                    </>
                   ) : (
                     <button
                       onClick={(e) => {
@@ -191,9 +223,9 @@ export function PostCard({
                         handleReport()
                         setShowMenu(false)
                       }}
-                      className="flex w-full items-center justify-between px-4 py-3 text-[14px] font-medium text-[#ff4d6d] transition-colors hover:bg-[#262626]"
+                      className={`${menuItem} text-[#ff4d6d]`}
                     >
-                      Report <Flag size={16} />
+                      Report <Flag size={15} />
                     </button>
                   )}
                 </div>
@@ -202,15 +234,15 @@ export function PostCard({
           </div>
 
           {/* Content */}
-          <p className="mt-0.5 whitespace-pre-wrap break-words text-[15px] leading-snug text-[#f3f3f3]">
-            {post.content}
+          <p className="mt-0.5 whitespace-pre-wrap break-words text-[14px] leading-[1.4] text-[#f3f3f3]">
+            {content}
           </p>
 
           {/* Images */}
           {displayImages.length > 0 && <ImageCarousel images={displayImages} />}
 
           {/* Actions */}
-          <div className="-ml-2 mt-2 flex items-center gap-1 text-[#f3f3f3]">
+          <div className="-ml-2 mt-1 flex items-center text-[#f3f3f3]">
             <button
               onClick={(e) => {
                 e.stopPropagation()
@@ -221,8 +253,8 @@ export function PostCard({
                 isLiked ? 'text-[#ff3040]' : ''
               }`}
             >
-              <HeartIcon filled={isLiked} />
-              {likes > 0 && <span className="text-[13px]">{likes}</span>}
+              <HeartIcon filled={isLiked} className="h-[18px] w-[18px]" />
+              {likes > 0 && <span className="text-[12px]">{likes}</span>}
             </button>
 
             <button
@@ -233,8 +265,8 @@ export function PostCard({
               aria-label="Reply"
               className="flex items-center gap-1.5 rounded-full px-2 py-1.5 transition-colors hover:bg-[#222]"
             >
-              <CommentIcon />
-              {post.reply_count > 0 && <span className="text-[13px]">{post.reply_count}</span>}
+              <CommentIcon className="h-[18px] w-[18px]" />
+              {post.reply_count > 0 && <span className="text-[12px]">{post.reply_count}</span>}
             </button>
 
             <button
@@ -244,16 +276,28 @@ export function PostCard({
             >
               {copied ? (
                 <>
-                  <Check size={18} className="text-[#4ade80]" />
-                  <span className="text-[13px] text-[#4ade80]">Copied</span>
+                  <Check size={16} className="text-[#4ade80]" />
+                  <span className="text-[12px] text-[#4ade80]">Copied</span>
                 </>
               ) : (
-                <SendIcon />
+                <SendIcon className="h-[18px] w-[18px]" />
               )}
             </button>
           </div>
         </div>
       </div>
+
+      <EditPostModal
+        postId={post.id}
+        createdAt={post.created_at}
+        initialContent={content}
+        open={editing}
+        onClose={() => setEditing(false)}
+        onSaved={(u) => {
+          setContent(u.content)
+          setEditedAt(u.edited_at)
+        }}
+      />
     </article>
   )
 }
