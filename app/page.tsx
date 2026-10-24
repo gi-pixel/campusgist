@@ -103,11 +103,7 @@ export default function Page() {
       </button>
 
       {/* Online users: takes the place of the heart and profile buttons */}
-      <div className="col-span-2 flex items-center justify-center gap-2 justify-self-center rounded-full bg-[#1e1e1e] px-4 py-2 text-[13px] text-[#9a9a9a]">
-        <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-60" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
-        </span>
+      <div className="col-span-2 flex items-center justify-center justify-self-center rounded-full bg-[#1e1e1e] px-4 py-2 text-[13px] text-[#9a9a9a]">
         <OnlineCounter />
       </div>
     </nav>
