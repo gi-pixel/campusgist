@@ -59,10 +59,10 @@ export function ImageCarousel({ images }: { images: string[] }) {
     {/* In-feed media: small previews, full size only on tap */}
     {images.length === 1 ? (
     // Single image: cropped into a compact box that follows its shape
-    <div
-        className="mt-2.5 w-full max-w-[min(100%,540px)] overflow-hidden rounded-2xl border border-[#2a2a2a] bg-[#222]"
+      <div
+        className="mt-2 w-full max-w-[min(100%,400px)] overflow-hidden rounded-xl border border-[#2a2a2a] bg-[#222]"
         style={{ aspectRatio: singleRatio }}
-    >
+      >
         <img
         src={images[0]}
         alt=""
@@ -94,7 +94,7 @@ export function ImageCarousel({ images }: { images: string[] }) {
             alt=""
             loading="lazy"
             onClick={(e) => openFullscreen(e, i)}
-            className="h-[220px] w-auto max-w-[75%] shrink-0 cursor-pointer snap-start rounded-2xl border border-[#2a2a2a] bg-[#222] object-cover sm:h-[240px]"
+            className="h-[180px] w-auto max-w-[70%] shrink-0 cursor-pointer snap-start rounded-xl border border-[#2a2a2a] bg-[#222] object-cover sm:h-[200px]"
             />
         ))}
         </div>
