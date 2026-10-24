@@ -5,6 +5,7 @@ import { fetchPosts, type Post } from '@/lib/feed'
 import { PostCard } from './PostCard'
 import { ThreadModal } from './ThreadModal'
 import { createClient } from '@/lib/supabase/client'
+import { useCurrentUserId } from '@/lib/useCurrentUserId'
 
 export function Feed({ refreshKey }: { refreshKey: number }) {
   const [posts, setPosts] = useState<Post[]>([])
@@ -12,22 +13,11 @@ export function Feed({ refreshKey }: { refreshKey: number }) {
   const [loading, setLoading] = useState(false)
   const [initialLoaded, setInitialLoaded] = useState(false)
   const [hasMore, setHasMore] = useState(true)
-  const [userId, setUserId] = useState<string>('')
+  const userId = useCurrentUserId()
 
   // Which post is open in the comments modal
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
 
-  // 1. Fetch current user ID
-  useEffect(() => {
-    async function getUid() {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (user) setUserId(user.id)
-    }
-    getUid()
-  }, [])
 
   // 2. Load posts with pagination
   const load = useCallback(
@@ -51,11 +41,12 @@ export function Feed({ refreshKey }: { refreshKey: number }) {
     [cursor, loading]
   )
 
-  // Reload when refreshKey changes (e.g. after posting)
-  useEffect(() => {
+    // Load when refreshKey changes (e.g. after posting), once the user session exists
+    useEffect(() => {
+    if (!userId) return
     load(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey])
+    }, [refreshKey, userId])
 
   // 3. Realtime subscriptions
   useEffect(() => {

@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { EMOJIS, storeEmoji } from '@/lib/avatar'
-
-const STORAGE_KEY = 'campusgist_onboarded'
+import { isOnboarded, markOnboarded } from '@/lib/onboarding'
 
 type Stage = 'welcome' | 'rules' | 'emoji'
 const STAGES: Stage[] = ['welcome', 'rules', 'emoji']
@@ -20,20 +20,17 @@ export function Onboarding() {
   const [stage, setStage] = useState<Stage>('welcome')
   const [selected, setSelected] = useState<string | null>(null)
 
+  // True when the visitor arrived through a shared post link
+  const fromLink = (usePathname() ?? '').startsWith('/post/')
+
   useEffect(() => {
-    try {
-      if (localStorage.getItem(STORAGE_KEY)) return
-    } catch {
-      // storage unavailable: just show onboarding
-    }
+    if (isOnboarded()) return
     setVisible(true)
   }, [])
 
   function finish(emoji?: string | null) {
     if (emoji) storeEmoji(emoji)
-    try {
-      localStorage.setItem(STORAGE_KEY, 'true')
-    } catch {}
+    markOnboarded() // saves the flag and triggers the anonymous sign-in
     setVisible(false)
   }
 
@@ -64,7 +61,9 @@ export function Onboarding() {
             </div>
             <h1 className="text-[32px] font-bold tracking-tight">CampusGist</h1>
             <p className="mx-auto mt-3 max-w-[300px] text-[15px] leading-relaxed text-[#9a9a9a]">
-              Anonymous, unfiltered campus talk. No accounts. No names.
+              {fromLink
+                ? "Someone shared a post with you. A quick intro first, then you'll see it."
+                : 'Anonymous, unfiltered campus talk. No accounts. No names.'}
             </p>
           </div>
         )}
@@ -159,7 +158,7 @@ export function Onboarding() {
                   : 'bg-[#2a2a2a] text-[#6b6b6b]'
               }`}
             >
-              Continue
+              {fromLink ? 'View post' : 'Continue'}
             </button>
             <button
               onClick={() => finish()}
