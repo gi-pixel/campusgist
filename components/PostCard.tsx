@@ -144,11 +144,11 @@ export function PostCard({
   return (
     <article
       onClick={() => onOpenComments(post)}
-      className="cursor-pointer px-4 py-3 transition-colors hover:bg-white/[0.02]"
+      className="cursor-pointer px-4 py-2.5 transition-colors hover:bg-white/[0.02]"
     >
       <div className="flex gap-2.5">
         {/* Avatar */}
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#2a2a2a] text-lg">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2a2a2a] text-lg">
           {emoji}
         </div>
 

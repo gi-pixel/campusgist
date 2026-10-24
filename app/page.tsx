@@ -67,7 +67,7 @@ export default function Page() {
         </div>
 
         {/* Inline composer row */}
-        <div className="flex items-center gap-3 border-b border-[#2a2a2a] px-4 py-4 md:px-6">
+        <div className="flex items-center gap-3 border-b border-[#2a2a2a] px-4 py-3 md:px-6">
           <div className="h-9 w-9 shrink-0 rounded-full bg-[#2a2a2a]" />
           <button
             onClick={() => setComposerOpen(true)}

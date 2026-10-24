@@ -60,7 +60,7 @@ export function ImageCarousel({ images }: { images: string[] }) {
     {images.length === 1 ? (
     // Single image: cropped into a compact box that follows its shape
     <div
-        className="mt-3 w-full max-w-[300px] overflow-hidden rounded-2xl border border-[#2a2a2a] bg-[#222]"
+        className="mt-2.5 w-full max-w-[min(100%,540px)] overflow-hidden rounded-2xl border border-[#2a2a2a] bg-[#222]"
         style={{ aspectRatio: singleRatio }}
     >
         <img

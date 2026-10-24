@@ -180,7 +180,7 @@ function FeedSkeleton() {
   return (
     <div className="divide-y divide-[#2a2a2a]" aria-hidden>
       {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="flex animate-pulse gap-3 px-4 py-4 md:px-5">
+        <div key={i} className="flex animate-pulse gap-2.5 px-4 py-3 md:px-5">
           <div className="h-10 w-10 shrink-0 rounded-full bg-[#262626]" />
           <div className="flex-1 space-y-2.5 pt-1">
             <div className="h-3 w-28 rounded bg-[#262626]" />
