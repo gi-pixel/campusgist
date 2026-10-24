@@ -13,6 +13,7 @@ import {
   ThreadsLogo,
 } from '@/components/icons'
 import { useRouter } from 'next/navigation'
+import { Wordmark } from '@/components/Wordmark'
 
 export default function Page() {
   const router = useRouter()
@@ -24,9 +25,7 @@ export default function Page() {
     <div className="min-h-screen bg-[#101010] text-white">
       {/* Top bar (desktop): logo | nav | status */}
       <header className="fixed inset-x-0 top-0 z-40 hidden h-[76px] grid-cols-3 items-center px-6 md:grid">
-        <div className="text-white">
-          <ThreadsLogo className="h-9 w-9" />
-        </div>
+         <Wordmark className="text-[22px]" />
 
         <nav className="flex items-center justify-center gap-1">
           <NavButton label="Home" active>
@@ -54,17 +53,13 @@ export default function Page() {
       </header>
 
       {/* Top bar (mobile): centered logo */}
-      <header className="sticky top-0 z-40 flex justify-center bg-[#101010]/90 py-3 backdrop-blur-md md:hidden">
-        <ThreadsLogo className="h-8 w-8 text-white" />
+      <header className="sticky top-0 z-40 flex justify-center bg-[#101010]/90 py-2.5 backdrop-blur-md md:hidden">
+        <Wordmark className="text-[19px]" />
       </header>
 
     {/* Feed card: full width on mobile, progressively wider on desktop */}
       <main className="mx-auto w-full min-w-0 pb-24 md:max-w-[640px] md:pb-0 md:pt-[76px]">
         <div className="min-h-screen min-w-0 overflow-x-hidden border-[#2a2a2a] bg-[#181818] md:rounded-t-[28px] md:border md:border-b-0">
-        {/* Card header */}
-        <div className="flex items-center justify-center border-b border-[#2a2a2a] py-4">
-          <h2 className="text-[15px] font-semibold">For you</h2>
-        </div>
 
         {/* Inline composer row */}
         <div className="flex items-center gap-3 border-b border-[#2a2a2a] px-4 py-3 md:px-6">
