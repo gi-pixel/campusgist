@@ -82,18 +82,35 @@ export default function Page() {
       </div>
     </main>
 
-      {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-50 flex items-center justify-around bg-[#101010]/95 pb-6 pt-3 backdrop-blur-md md:hidden">
-        <HomeIcon filled className="h-6 w-6 text-white" />
-        <button onClick={() => router.push('/search')} aria-label="Search">
-          <SearchIcon className="h-6 w-6 text-[#71767b]" />
-        </button>
-        <button onClick={() => setComposerOpen(true)} className="rounded-xl bg-[#1e1e1e] px-4 py-2 text-[#9a9a9a]">
-          <ComposeIcon className="h-5 w-5" />
-        </button>
-        <HeartIcon className="h-6 w-6 text-[#4d4d4d]" />
-        <UserIcon className="h-6 w-6 text-[#4d4d4d]" />
-      </nav>
+    {/* Mobile bottom nav */}
+    <nav className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 items-center bg-[#101010]/95 px-3 pb-5 pt-2.5 backdrop-blur-md md:hidden">
+      <HomeIcon filled className="h-[22px] w-[22px] justify-self-center text-white" />
+
+      <button
+        onClick={() => router.push('/search')}
+        aria-label="Search"
+        className="justify-self-center"
+      >
+        <SearchIcon className="h-[22px] w-[22px] text-[#4d4d4d]" />
+      </button>
+
+      <button
+        onClick={() => setComposerOpen(true)}
+        aria-label="New post"
+        className="justify-self-center rounded-xl bg-[#1e1e1e] px-4 py-2 text-[#9a9a9a]"
+      >
+        <ComposeIcon className="h-5 w-5" />
+      </button>
+
+      {/* Online users: takes the place of the heart and profile buttons */}
+      <div className="col-span-2 flex items-center justify-center gap-2 justify-self-center rounded-full bg-[#1e1e1e] px-4 py-2 text-[13px] text-[#9a9a9a]">
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-60" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+        </span>
+        <OnlineCounter />
+      </div>
+    </nav>
 
       <ComposerModal
         open={composerOpen}
