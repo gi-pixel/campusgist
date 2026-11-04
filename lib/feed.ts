@@ -3,8 +3,9 @@ import type { Database } from '@/lib/supabase/types'
 
 export type Post = Database['public']['Tables']['posts']['Row'] & {
   images?: string[] | null
-  image_url?: string | null 
-   avatar_emoji?: string | null
+  image_url?: string | null
+  avatar_emoji?: string | null
+  is_admin?: boolean
 }
 
 export async function fetchPosts(params: {
@@ -35,22 +36,28 @@ export async function fetchPosts(params: {
   const nextCursor =
     data && data.length === limit ? data[data.length - 1].created_at : null
 
-  return { posts: data ?? [], nextCursor }
+  return { posts: (data as Post[]) ?? [], nextCursor }
 }
 
-export async function searchPosts(term: string, limit = 50): Promise<Post[]> {
+export async function searchPosts(query: string): Promise<Post[]> {
+  if (!query.trim()) return []
+
   const supabase = createClient()
-  // Escape LIKE wildcards so "100%" or "a_b" are searched literally
-  const safe = term.trim().replace(/[\\%_]/g, '\\$&')
-  if (!safe) return []
 
   const { data, error } = await supabase
     .from('posts')
     .select('*')
-    .ilike('content', `%${safe}%`)
+    .ilike('content', `%${query.trim()}%`)
     .order('created_at', { ascending: false })
-    .limit(limit)
+    .limit(100)
 
-  if (error) throw error
-  return data ?? []
+  if (error) {
+    console.error('Supabase search error:', JSON.stringify(error, null, 2))
+    throw new Error(error.message || 'Search failed')
+  }
+
+  return (data || []).map((post) => ({
+    ...post,
+    is_admin: false, // Search results won't show admin badge — fine for now
+  }))
 }

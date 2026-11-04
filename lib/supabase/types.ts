@@ -70,34 +70,40 @@ export type Database = {
       posts: {
         Row: {
           author_id: string
+          avatar_emoji: string | null
           category: Database["public"]["Enums"]["post_category"]
           content: string
           created_at: string
           edited_at: string | null
           id: string
           image_url: string | null
+          images: string[] | null
           like_count: number
           reply_count: number
         }
         Insert: {
           author_id: string
+          avatar_emoji?: string | null
           category?: Database["public"]["Enums"]["post_category"]
           content: string
           created_at?: string
           edited_at?: string | null
           id?: string
           image_url?: string | null
+          images?: string[] | null
           like_count?: number
           reply_count?: number
         }
         Update: {
           author_id?: string
+          avatar_emoji?: string | null
           category?: Database["public"]["Enums"]["post_category"]
           content?: string
           created_at?: string
           edited_at?: string | null
           id?: string
           image_url?: string | null
+          images?: string[] | null
           like_count?: number
           reply_count?: number
         }
@@ -106,6 +112,7 @@ export type Database = {
       replies: {
         Row: {
           author_id: string
+          avatar_emoji: string | null
           content: string
           created_at: string
           id: string
@@ -115,6 +122,7 @@ export type Database = {
         }
         Insert: {
           author_id: string
+          avatar_emoji?: string | null
           content: string
           created_at?: string
           id?: string
@@ -124,6 +132,7 @@ export type Database = {
         }
         Update: {
           author_id?: string
+          avatar_emoji?: string | null
           content?: string
           created_at?: string
           id?: string
@@ -216,6 +225,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_delete_reply: {
+        Args: { p_id: string; p_reason?: string }
+        Returns: undefined
+      }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
     }

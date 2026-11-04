@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Flag } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { PostCard } from './PostCard'
 import type { Post } from '@/lib/feed'
@@ -149,6 +149,25 @@ export function ThreadView({
     await syncCount()
   }
 
+  async function handleReportReply(replyId: string) {
+  if (!currentUserId) return
+  const reason = prompt('Why are you reporting this reply?')
+  if (!reason || !reason.trim()) return
+
+  const { error } = await supabase.from('reports').insert({
+    reply_id: replyId,
+    reporter_id: currentUserId,
+    reason: reason.trim(),
+  })
+
+  if (error) {
+    console.error('Report failed:', error)
+    alert('Could not submit the report. Try again.')
+  } else {
+    alert('Report submitted. Thank you.')
+  }
+}
+
   const canReply = content.trim().length > 0 && !sending
 
   return (
@@ -180,13 +199,21 @@ export function ThreadView({
                       <span className="text-[13px] text-[#6b6b6b]">{timeAgo(reply.created_at)}</span>
                     </div>
 
-                    {isReplyAuthor && (
+                    {isReplyAuthor ? (
                       <button
                         onClick={() => handleDeleteReply(reply.id)}
                         aria-label="Delete reply"
                         className="text-[#6b6b6b] transition-colors hover:text-[#ff4d6d] sm:opacity-0 sm:group-hover:opacity-100"
                       >
                         <Trash2 size={15} />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleReportReply(reply.id)}
+                        aria-label="Report reply"
+                        className="text-[#6b6b6b] transition-colors hover:text-[#ff4d6d] sm:opacity-0 sm:group-hover:opacity-100"
+                      >
+                        <Flag size={15} />
                       </button>
                     )}
                   </div>
@@ -198,13 +225,6 @@ export function ThreadView({
               </div>
             )
           })}
-
-          {replies.length === 0 && (
-            <div className="py-10 text-center">
-              <p className="text-[15px] font-semibold">No replies yet</p>
-              <p className="mt-1 text-[13px] text-[#6b6b6b]">Be the first to reply.</p>
-            </div>
-          )}
         </div>
       </div>
 
