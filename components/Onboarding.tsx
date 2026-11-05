@@ -20,13 +20,20 @@ export function Onboarding() {
   const [stage, setStage] = useState<Stage>('welcome')
   const [selected, setSelected] = useState<string | null>(null)
 
+  const pathname = usePathname() ?? ''
+  
   // True when the visitor arrived through a shared post link
-  const fromLink = (usePathname() ?? '').startsWith('/post/')
+  const fromLink = pathname.startsWith('/post/')
+  
+  // True on admin or login routes — never show onboarding there
+  const isAdminArea = pathname.startsWith('/admin') || pathname.startsWith('/login')
 
   useEffect(() => {
+    // Skip entirely on admin/login pages
+    if (isAdminArea) return
     if (isOnboarded()) return
     setVisible(true)
-  }, [])
+  }, [isAdminArea])
 
   function finish(emoji?: string | null) {
     if (emoji) storeEmoji(emoji)
@@ -34,7 +41,8 @@ export function Onboarding() {
     setVisible(false)
   }
 
-  if (!visible) return null
+  // Never render on admin/login, even if visible was somehow set true
+  if (!visible || isAdminArea) return null
 
   const stageIndex = STAGES.indexOf(stage)
 
