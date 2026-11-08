@@ -63,3 +63,32 @@ export async function deleteReplyAdmin(replyId: string, reason?: string) {
   revalidatePath('/admin/reports')
   revalidatePath('/')
 }
+
+import type { Database } from '@/lib/supabase/types'
+type PostCategory = Database['public']['Enums']['post_category']
+
+export async function createAnnouncementAdmin(
+  content: string,
+  category: PostCategory = 'campus'
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { supabase, user } = await requireAdmin()
+
+  const text = content.trim()
+  if (!text || text.length > 280) {
+    return { ok: false, error: 'Announcements must be between 1 and 280 characters' }
+  }
+
+  const { error } = await supabase.from('posts').insert({
+    author_id: user.id,
+    content: text,
+    category,
+    is_official: true,
+    avatar_emoji: '📢',
+  })
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/')
+  revalidatePath('/admin')
+  revalidatePath('/admin/posts')
+  return { ok: true }
+}

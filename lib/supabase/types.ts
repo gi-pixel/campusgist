@@ -78,6 +78,7 @@ export type Database = {
           id: string
           image_url: string | null
           images: string[] | null
+          is_official: boolean
           like_count: number
           reply_count: number
         }
@@ -91,6 +92,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           images?: string[] | null
+          is_official?: boolean
           like_count?: number
           reply_count?: number
         }
@@ -104,6 +106,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           images?: string[] | null
+          is_official?: boolean
           like_count?: number
           reply_count?: number
         }
