@@ -1,10 +1,10 @@
 import { requireAdmin } from '@/lib/admin'
+import { PageHeader } from '@/components/admin/PageHeader'
 import { ReportList } from './ReportList'
 
 export default async function ReportsPage() {
   const { supabase } = await requireAdmin()
 
-  // Fetch open reports, and join BOTH posts and replies
   const { data: reports } = await supabase
     .from('reports')
     .select(`
@@ -22,12 +22,8 @@ export default async function ReportsPage() {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-6">Reports Queue</h2>
-      <p className="text-[#71767b] mb-8">
-        Review flagged posts and replies.
-      </p>
-
-      <ReportList initialReports={reports || []} />
+      <PageHeader title="Reports" description="Review flagged posts and replies." />
+      <ReportList initialReports={(reports as any) || []} />
     </div>
   )
 }

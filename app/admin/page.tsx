@@ -1,66 +1,70 @@
-import { requireAdmin } from '@/lib/admin'
 import Link from 'next/link'
+import { requireAdmin } from '@/lib/admin'
+import { PageHeader } from '@/components/admin/PageHeader'
+import { AdminPostList } from '@/components/admin/AdminPostList'
+
+function Stat({
+  label,
+  value,
+  href,
+  alert,
+}: {
+  label: string
+  value: number
+  href?: string
+  alert?: boolean
+}) {
+  const body = (
+    <>
+      <p className="text-[12px] text-[#6b6b6b]">{label}</p>
+      <p className={`mt-1 text-[26px] font-bold tabular-nums ${alert ? 'text-[#ff4d6d]' : 'text-white'}`}>
+        {value}
+      </p>
+    </>
+  )
+  const cls = 'rounded-2xl border border-[#2a2a2a] bg-[#181818] p-4'
+  return href ? (
+    <Link href={href} className={`${cls} transition hover:bg-[#1e1e1e]`}>
+      {body}
+    </Link>
+  ) : (
+    <div className={cls}>{body}</div>
+  )
+}
 
 export default async function AdminDashboard() {
   const { supabase } = await requireAdmin()
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
-  // Fetch stats
-  const { count: totalPosts } = await supabase.from('posts').select('*', { count: 'exact', head: true })
-  const { count: totalReports } = await supabase.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'open')
-  
-  // Fetch recent posts for quick moderation
-  const { data: recentPosts } = await supabase
-    .from('posts')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(10)
+  const [posts, today, replies, reports, recent] = await Promise.all([
+    supabase.from('posts').select('*', { count: 'exact', head: true }),
+    supabase.from('posts').select('*', { count: 'exact', head: true }).gte('created_at', since),
+    supabase.from('replies').select('*', { count: 'exact', head: true }),
+    supabase.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'open'),
+    supabase.from('posts').select('*').order('created_at', { ascending: false }).limit(8),
+  ])
+
+  const openReports = reports.count ?? 0
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-6">Overview</h2>
-      
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        <div className="p-6 border border-[#2f3336] rounded-xl bg-[#0a0a0a]">
-          <h3 className="text-[#71767b] text-sm mb-1">Total Posts (Active)</h3>
-          <p className="text-3xl font-bold">{totalPosts || 0}</p>
-        </div>
-        <div className="p-6 border border-[#2f3336] rounded-xl bg-[#0a0a0a]">
-          <h3 className="text-[#71767b] text-sm mb-1">Pending Reports</h3>
-          <p className="text-3xl font-bold text-red-500">{totalReports || 0}</p>
-        </div>
+      <PageHeader title="Dashboard" description="What's happening on campus right now." />
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat label="Total posts" value={posts.count ?? 0} href="/admin/posts" />
+        <Stat label="Posts in 24h" value={today.count ?? 0} />
+        <Stat label="Total replies" value={replies.count ?? 0} />
+        <Stat label="Open reports" value={openReports} href="/admin/reports" alert={openReports > 0} />
       </div>
 
-      {/* Recent Posts Table */}
-      <h3 className="text-xl font-bold mb-4">Recent Posts</h3>
-      <div className="border border-[#2f3336] rounded-xl overflow-hidden bg-[#0a0a0a]">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-[#16181c] text-[#71767b]">
-            <tr>
-              <th className="px-4 py-3 font-medium">Content</th>
-              <th className="px-4 py-3 font-medium">Category</th>
-              <th className="px-4 py-3 font-medium">Created</th>
-              <th className="px-4 py-3 font-medium">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#2f3336]">
-            {recentPosts?.map((post) => (
-              <tr key={post.id} className="hover:bg-[#16181c]/50">
-                <td className="px-4 py-3 max-w-md truncate">{post.content}</td>
-                <td className="px-4 py-3 text-[#71767b]">{post.category}</td>
-                <td className="px-4 py-3 text-[#71767b]">
-                  {new Date(post.created_at).toLocaleDateString()}
-                </td>
-                <td className="px-4 py-3">
-                  <Link href={`/admin/posts/${post.id}`} className="text-[#1d9bf0] hover:underline">
-                    Review
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="mb-3 mt-8 flex items-center justify-between">
+        <h2 className="text-[15px] font-semibold">Recent posts</h2>
+        <Link href="/admin/posts" className="text-[13px] font-semibold text-[#9a9a9a] transition hover:text-white">
+          View all
+        </Link>
       </div>
+
+      <AdminPostList initialPosts={recent.data ?? []} emptyText="No posts yet." />
     </div>
   )
 }
