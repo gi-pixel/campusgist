@@ -99,8 +99,9 @@ export function EditPostModal({
   if (!open) return null
 
   return (
-    <div
-      onClick={(e) => {
+  <div
+    data-no-swipe
+    onClick={(e) => {
         e.stopPropagation() // don't trigger the post card's click behind it
         onClose()
       }}

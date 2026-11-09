@@ -122,8 +122,9 @@ export function ImageCarousel({ images }: { images: string[] }) {
 
       {/* Fullscreen modal */}
       {fullscreenIndex !== null && (
-        <div
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95"
+      <div
+        data-no-swipe
+        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 backdrop-blur-sm"
           onClick={(e) => { e.stopPropagation(); setFullscreenIndex(null) }}
         >
           {/* Top bar: always above everything else */}

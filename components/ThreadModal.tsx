@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { X } from 'lucide-react'
 import { ThreadView } from './ThreadView'
 import { useCurrentUserId } from '@/lib/useCurrentUserId'
+import { useSwipeToClose } from '@/lib/useSwipeToClose'
 import type { Post } from '@/lib/feed'
 
 export function ThreadModal({
@@ -16,6 +17,7 @@ export function ThreadModal({
   onReplyCountChange: (postId: string, count: number) => void
 }) {
   const currentUserId = useCurrentUserId()
+  const { sheetRef, backdropRef } = useSwipeToClose(!!post, onClose)
 
   // Escape closes + lock background scroll
   useEffect(() => {
@@ -24,31 +26,38 @@ export function ThreadModal({
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
-    
-    // Lock scrolling on the body so the feed doesn't scroll behind the modal
+
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    
+
     return () => {
       window.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
     }
   }, [post, onClose])
 
-  // Don't render anything if there's no post selected
   if (!post) return null
 
   return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4"
-    >
+    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center sm:p-4">
+      {/* Dim layer: fades while the sheet is dragged */}
       <div
-        onClick={(e) => e.stopPropagation()}
-        className="flex h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl border border-[#2a2a2a] bg-[#181818] shadow-2xl sm:h-auto sm:max-h-[88vh] sm:max-w-[640px] sm:rounded-3xl"
+        ref={backdropRef}
+        onClick={onClose}
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+      />
+
+      <div
+        ref={sheetRef}
+        className="relative flex h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl border border-[#2a2a2a] bg-[#181818] shadow-2xl sm:h-auto sm:max-h-[88vh] sm:max-w-[640px] sm:rounded-3xl"
       >
+        {/* Grab handle (phones only) */}
+        <div className="flex justify-center pt-2 sm:hidden">
+          <span className="h-1 w-9 rounded-full bg-[#3a3a3a]" />
+        </div>
+
         {/* Header */}
-        <div className="grid grid-cols-3 items-center px-5 py-4">
+        <div className="grid grid-cols-3 items-center px-5 py-3">
           <button
             onClick={onClose}
             aria-label="Close"
@@ -62,7 +71,6 @@ export function ThreadModal({
 
         <div className="h-px bg-[#2a2a2a]" />
 
-        {/* Thread Content */}
         <ThreadView
           key={post.id}
           post={post}
