@@ -1,4 +1,4 @@
-const KEY = 'campusgist_onboarded'
+const KEY = 'campusgist_onboarded_v2'
 export const ONBOARDED_EVENT = 'campusgist:onboarded'
 
 // Fallback for browsers where localStorage is blocked (private modes)
