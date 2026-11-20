@@ -65,6 +65,13 @@ export type Database = {
             referencedRelation: "posts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts_with_author"
+            referencedColumns: ["id"]
+          },
         ]
       }
       posts: {
@@ -109,6 +116,27 @@ export type Database = {
           is_official?: boolean
           like_count?: number
           reply_count?: number
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          nickname: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          nickname?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          nickname?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -158,6 +186,13 @@ export type Database = {
             referencedRelation: "posts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "replies_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts_with_author"
+            referencedColumns: ["id"]
+          },
         ]
       }
       reports: {
@@ -197,6 +232,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "reports_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts_with_author"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "reports_reply_id_fkey"
             columns: ["reply_id"]
             isOneToOne: false
@@ -223,9 +265,44 @@ export type Database = {
         }
         Relationships: []
       }
+      user_visits: {
+        Row: {
+          first_seen_at: string
+          last_seen_at: string
+          user_id: string
+        }
+        Insert: {
+          first_seen_at?: string
+          last_seen_at?: string
+          user_id: string
+        }
+        Update: {
+          first_seen_at?: string
+          last_seen_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      posts_with_author: {
+        Row: {
+          author_id: string | null
+          author_nickname: string | null
+          avatar_emoji: string | null
+          category: Database["public"]["Enums"]["post_category"] | null
+          content: string | null
+          created_at: string | null
+          edited_at: string | null
+          id: string | null
+          image_url: string | null
+          images: string[] | null
+          is_official: boolean | null
+          like_count: number | null
+          reply_count: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_delete_reply: {
@@ -234,6 +311,17 @@ export type Database = {
       }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
+      nickname_available: { Args: { p_nickname: string }; Returns: boolean }
+      set_nickname: { Args: { p_nickname: string }; Returns: undefined }
+      touch_visit: { Args: never; Returns: undefined }
+      visitor_stats: {
+        Args: { p_days?: number }
+        Returns: {
+          new_in_window: number
+          returning_in_window: number
+          total_visitors: number
+        }[]
+      }
     }
     Enums: {
       post_category:

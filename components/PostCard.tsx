@@ -42,7 +42,6 @@ export function PostCard({
   const [isLiked, setIsLiked] = useState(false)
   const [loadingLike, setLoadingLike] = useState(false)
 
-  // Stay in sync with realtime updates
   useEffect(() => {
     setContent(post.content)
     setEditedAt(post.edited_at ?? null)
@@ -129,13 +128,15 @@ export function PostCard({
   }
 
   const isAuthor = post.author_id === currentUserId
-  const isAdmin = post.is_admin === true // Check admin status from Feed query
-  
-  const emoji = isAdmin 
-    ? '⚡' 
+  const isOfficial = post.is_official === true
+  const canEdit =
+    isAuthor &&
+    !isOfficial &&
+    Date.now() - new Date(post.created_at).getTime() < 5 * 60 * 1000
+
+  const emoji = isOfficial
+    ? '📢'
     : (post.avatar_emoji ?? (isAuthor ? myEmoji : emojiForAuthor(post.author_id)))
-    
-  const canEdit = isAuthor && Date.now() - new Date(post.created_at).getTime() < 5 * 60 * 1000
 
   const displayImages = post.images?.length
     ? post.images
@@ -152,26 +153,28 @@ export function PostCard({
       className="cursor-pointer px-4 py-2.5 transition-colors hover:bg-white/[0.02]"
     >
       <div className="flex gap-2.5">
-        {/* Avatar - Changes for Admin */}
-        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg ${
-          isAdmin ? 'bg-[#1d9bf0] text-white' : 'bg-[#2a2a2a]'
-        }`}>
+        <div
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg ${
+            isOfficial ? 'bg-[#1d9bf0] text-white' : 'bg-[#2a2a2a]'
+          }`}
+        >
           {emoji}
         </div>
 
         <div className="min-w-0 flex-1">
-          {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <span className={`text-[14px] font-semibold ${
-                isAdmin ? 'text-[#1d9bf0]' : 'text-white'
-              }`}>
-                {isAdmin ? 'Admin' : 'anon'}
+              <span
+                className={`text-[14px] font-semibold ${
+                  isOfficial ? 'text-[#1d9bf0]' : 'text-white'
+                }`}
+              >
+                {isOfficial ? 'CampusGist' : (post.author_nickname ?? 'anon')}
               </span>
-              
-              {isAdmin && (
-                <span className="bg-[#1d9bf0]/20 text-[#1d9bf0] text-[10px] font-bold px-1.5 py-0.5 rounded">
-                  STAFF
+
+              {isOfficial && (
+                <span className="rounded-full bg-[#1d9bf0]/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#1d9bf0]">
+                  Official
                 </span>
               )}
 
@@ -179,7 +182,6 @@ export function PostCard({
               {editedAt && <span className="text-[13px] text-[#6b6b6b]">· edited</span>}
             </div>
 
-            {/* Menu */}
             <div ref={menuRef} className="relative">
               <button
                 onClick={(e) => {
@@ -206,7 +208,7 @@ export function PostCard({
 
                   <div className="h-px bg-[#2a2a2a]" />
 
-                  {isAuthor ? (
+                  {isAuthor && !isOfficial ? (
                     <>
                       {canEdit && (
                         <>
@@ -251,15 +253,12 @@ export function PostCard({
             </div>
           </div>
 
-          {/* Content */}
           <p className="mt-0.5 whitespace-pre-wrap break-words text-[14px] leading-[1.4] text-[#f3f3f3]">
             {content}
           </p>
 
-          {/* Images */}
           {displayImages.length > 0 && <ImageCarousel images={displayImages} />}
 
-          {/* Actions */}
           <div className="-ml-2 mt-1 flex items-center text-[#f3f3f3]">
             <button
               onClick={(e) => {

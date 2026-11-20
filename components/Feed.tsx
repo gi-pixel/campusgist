@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { fetchPosts, type Post } from '@/lib/feed'
+import { fetchPosts, attachNicknames, type Post } from '@/lib/feed'
 import { PostCard } from './PostCard'
 import { ThreadModal } from './ThreadModal'
 import { createClient } from '@/lib/supabase/client'
@@ -15,11 +15,8 @@ export function Feed({ refreshKey }: { refreshKey: number }) {
   const [hasMore, setHasMore] = useState(true)
   const userId = useCurrentUserId()
 
-  // Which post is open in the comments modal
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
 
-
-  // 2. Load posts with pagination
   const load = useCallback(
     async (reset = false) => {
       if (loading) return
@@ -41,14 +38,12 @@ export function Feed({ refreshKey }: { refreshKey: number }) {
     [cursor, loading]
   )
 
-    // Load when refreshKey changes (e.g. after posting), once the user session exists
-    useEffect(() => {
+  useEffect(() => {
     if (!userId) return
     load(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [refreshKey, userId])
+  }, [refreshKey, userId])
 
-  // 3. Realtime subscriptions
   useEffect(() => {
     const supabase = createClient()
     const channel = supabase
@@ -56,12 +51,17 @@ export function Feed({ refreshKey }: { refreshKey: number }) {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'posts' },
-        (payload) => {
+        async (payload) => {
           const incoming = payload.new as Post
-          // Skip if the post is already in the list (e.g. your own post
-          // arriving through both the refresh and the realtime event)
+          let enriched: Post = { ...incoming, author_nickname: null }
+          try {
+            const [withName] = await attachNicknames([enriched])
+            enriched = withName
+          } catch (err) {
+            console.warn('Nickname lookup failed for realtime post:', err)
+          }
           setPosts((prev) =>
-            prev.some((p) => p.id === incoming.id) ? prev : [incoming, ...prev]
+            prev.some((p) => p.id === enriched.id) ? prev : [enriched, ...prev]
           )
         }
       )
@@ -107,34 +107,27 @@ export function Feed({ refreshKey }: { refreshKey: number }) {
     }
   }, [])
 
-  // 4. Instantly bump reply count when the user comments
-// Sets the real count from the database (never +1/-1, so it can't drift)
-    function handleReplyCountChange(postId: string, count: number) {
+  function handleReplyCountChange(postId: string, count: number) {
     setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, reply_count: count } : p)))
     setSelectedPost((cur) => (cur && cur.id === postId ? { ...cur, reply_count: count } : cur))
-    }
+  }
 
-  // Waiting on the user ID or the first page: show skeletons instead of a blank screen
   if (!userId || !initialLoaded) {
     return <FeedSkeleton />
   }
 
   return (
     <div>
-      {/* Empty state */}
       {posts.length === 0 && !loading && (
         <div className="flex flex-col items-center px-6 py-20 text-center">
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#222] text-2xl">
             💬
           </div>
           <p className="text-[16px] font-semibold text-white">Nothing here yet</p>
-          <p className="mt-1 text-[14px] text-[#6b6b6b]">
-            Start the conversation.
-          </p>
+          <p className="mt-1 text-[14px] text-[#6b6b6b]">Start the conversation.</p>
         </div>
       )}
 
-      {/* Posts, separated by thin dividers like Threads */}
       <div className="divide-y divide-[#2a2a2a]">
         {posts.map((p) => (
           <PostCard
@@ -146,7 +139,6 @@ export function Feed({ refreshKey }: { refreshKey: number }) {
         ))}
       </div>
 
-      {/* Load more */}
       {hasMore && posts.length > 0 && (
         <div className="border-t border-[#2a2a2a] px-4 py-6 text-center">
           <button
@@ -159,19 +151,17 @@ export function Feed({ refreshKey }: { refreshKey: number }) {
         </div>
       )}
 
-      {/* End of feed */}
       {!hasMore && posts.length > 0 && (
         <p className="border-t border-[#2a2a2a] py-8 text-center text-[13px] text-[#6b6b6b]">
           You&apos;re all caught up
         </p>
       )}
 
-      {/* Thread modal */}
-    <ThreadModal
-    post={selectedPost}
-    onClose={() => setSelectedPost(null)}
-    onReplyCountChange={handleReplyCountChange}
-    />
+      <ThreadModal
+        post={selectedPost}
+        onClose={() => setSelectedPost(null)}
+        onReplyCountChange={handleReplyCountChange}
+      />
     </div>
   )
 }

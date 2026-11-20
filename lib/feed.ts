@@ -5,7 +5,7 @@ export type Post = Database['public']['Tables']['posts']['Row'] & {
   images?: string[] | null
   image_url?: string | null
   avatar_emoji?: string | null
-  is_admin?: boolean
+  author_nickname?: string | null
 }
 
 export async function fetchPosts(params: {
@@ -16,8 +16,9 @@ export async function fetchPosts(params: {
   const supabase = createClient()
   const limit = params.limit ?? 20
 
+  // Read from posts_with_author so author_nickname is included in the row.
   let query = supabase
-    .from('posts')
+    .from('posts_with_author')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(limit)
@@ -45,7 +46,7 @@ export async function searchPosts(query: string): Promise<Post[]> {
   const supabase = createClient()
 
   const { data, error } = await supabase
-    .from('posts')
+    .from('posts_with_author')
     .select('*')
     .ilike('content', `%${query.trim()}%`)
     .order('created_at', { ascending: false })
@@ -56,8 +57,19 @@ export async function searchPosts(query: string): Promise<Post[]> {
     throw new Error(error.message || 'Search failed')
   }
 
-  return (data || []).map((post) => ({
-    ...post,
-    is_admin: false, // Search results won't show admin badge — fine for now
-  }))
+  return (data as Post[]) ?? []
+}
+
+// Attach nicknames to rows that didn't come from posts_with_author
+// (e.g. realtime INSERT payloads, which only include raw posts columns).
+export async function attachNicknames(posts: Post[]): Promise<Post[]> {
+  if (posts.length === 0) return posts
+  const supabase = createClient()
+  const ids = [...new Set(posts.map((p) => p.author_id))]
+  const { data } = await supabase
+    .from('profiles')
+    .select('user_id, nickname')
+    .in('user_id', ids)
+  const map = new Map((data ?? []).map((r) => [r.user_id, r.nickname]))
+  return posts.map((p) => ({ ...p, author_nickname: map.get(p.author_id) ?? null }))
 }

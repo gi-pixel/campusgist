@@ -68,7 +68,13 @@ export function AdminPostList({
                   })}
                 </span>
                 {post.edited_at && <span>· edited</span>}
-                <span>· by {post.author_id.slice(0, 8)}</span>
+                {post.is_official ? (
+                  <span className="rounded-full bg-[#1d9bf0]/20 px-2 py-0.5 font-medium text-[#1d9bf0]">
+                    Official
+                  </span>
+                ) : (
+                  <span>· by {post.author_id.slice(0, 8)}</span>
+                )}
               </div>
 
               <p className="mt-2 line-clamp-4 whitespace-pre-wrap break-words text-[14px] leading-snug text-[#f3f3f3]">

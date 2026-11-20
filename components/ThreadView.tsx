@@ -18,6 +18,16 @@ function timeAgo(dateStr?: string) {
   return `${Math.floor(hours / 24)}d`
 }
 
+type Reply = {
+  id: string
+  post_id: string
+  author_id: string
+  content: string
+  created_at: string
+  avatar_emoji?: string | null
+  nickname?: string | null
+}
+
 export function ThreadView({
   post,
   currentUserId,
@@ -28,7 +38,7 @@ export function ThreadView({
   onReplyCountChange: (postId: string, count: number) => void
 }) {
   const supabase = useMemo(() => createClient(), [])
-  const [replies, setReplies] = useState<any[]>([])
+  const [replies, setReplies] = useState<Reply[]>([])
   const [content, setContent] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -36,18 +46,27 @@ export function ThreadView({
   const [emoji] = useState(() => resolveEmoji())
   const postId = post.id
 
-  // Load replies + realtime (new replies for this post, deleted replies anywhere)
   useEffect(() => {
     let cancelled = false
 
     async function fetchReplies() {
       const { data, error } = await supabase
         .from('replies')
-        .select('*')
+        .select('*, profiles:author_id ( nickname )')
         .eq('post_id', postId)
         .order('created_at', { ascending: true })
-      if (error) console.error('Fetch replies failed:', error)
-      if (!cancelled && data) setReplies(data)
+      if (error) {
+        console.error('Fetch replies failed:', error)
+        return
+      }
+      if (!cancelled && data) {
+        setReplies(
+          data.map((r: any) => ({
+            ...r,
+            nickname: r.profiles?.nickname ?? null,
+          }))
+        )
+      }
     }
     fetchReplies()
 
@@ -56,13 +75,19 @@ export function ThreadView({
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'replies', filter: `post_id=eq.${postId}` },
-        (payload) => {
+        async (payload) => {
+          const raw = payload.new as any
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('nickname')
+            .eq('user_id', raw.author_id)
+            .maybeSingle()
+          const incoming: Reply = { ...raw, nickname: prof?.nickname ?? null }
           setReplies((prev) =>
-            prev.some((r) => r.id === payload.new.id) ? prev : [...prev, payload.new]
+            prev.some((r) => r.id === incoming.id) ? prev : [...prev, incoming]
           )
         }
       )
-      // DELETE events can't be filtered by column, so listen to all and match by id
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'replies' },
@@ -78,7 +103,6 @@ export function ThreadView({
     }
   }, [postId, supabase])
 
-  // Read the real count (the trigger has already updated it) and pass it up
   async function syncCount() {
     const { data, error } = await supabase
       .from('posts')
@@ -106,7 +130,12 @@ export function ThreadView({
 
     const { data, error } = await supabase
       .from('replies')
-      .insert({ post_id: postId, author_id: user.id, content: content.trim(), avatar_emoji: emoji, })
+      .insert({
+        post_id: postId,
+        author_id: user.id,
+        content: content.trim(),
+        avatar_emoji: emoji,
+      })
       .select()
       .single()
 
@@ -119,7 +148,17 @@ export function ThreadView({
 
     setContent('')
     if (inputRef.current) inputRef.current.style.height = 'auto'
-    setReplies((prev) => (prev.some((r) => r.id === data.id) ? prev : [...prev, data]))
+
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('nickname')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    const withName: Reply = { ...(data as any), nickname: prof?.nickname ?? null }
+    setReplies((prev) =>
+      prev.some((r) => r.id === withName.id) ? prev : [...prev, withName]
+    )
     await syncCount()
     setSending(false)
   }
@@ -129,10 +168,8 @@ export function ThreadView({
     setError(null)
 
     const previous = replies
-    setReplies((prev) => prev.filter((r) => r.id !== replyId)) // optimistic
+    setReplies((prev) => prev.filter((r) => r.id !== replyId))
 
-    // .select('id') makes the result show whether a row was really deleted.
-    // A delete blocked by RLS returns no error, just zero rows.
     const { data, error } = await supabase
       .from('replies')
       .delete()
@@ -141,7 +178,7 @@ export function ThreadView({
 
     if (error || !data || data.length === 0) {
       console.error('Delete reply failed:', error ?? 'no rows deleted (check RLS policy)')
-      setReplies(previous) // roll back
+      setReplies(previous)
       setError('Could not delete that reply.')
       return
     }
@@ -150,29 +187,28 @@ export function ThreadView({
   }
 
   async function handleReportReply(replyId: string) {
-  if (!currentUserId) return
-  const reason = prompt('Why are you reporting this reply?')
-  if (!reason || !reason.trim()) return
+    if (!currentUserId) return
+    const reason = prompt('Why are you reporting this reply?')
+    if (!reason || !reason.trim()) return
 
-  const { error } = await supabase.from('reports').insert({
-    reply_id: replyId,
-    reporter_id: currentUserId,
-    reason: reason.trim(),
-  })
+    const { error } = await supabase.from('reports').insert({
+      reply_id: replyId,
+      reporter_id: currentUserId,
+      reason: reason.trim(),
+    })
 
-  if (error) {
-    console.error('Report failed:', error)
-    alert('Could not submit the report. Try again.')
-  } else {
-    alert('Report submitted. Thank you.')
+    if (error) {
+      console.error('Report failed:', error)
+      alert('Could not submit the report. Try again.')
+    } else {
+      alert('Report submitted. Thank you.')
+    }
   }
-}
 
   const canReply = content.trim().length > 0 && !sending
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Scrollable content */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         <PostCard post={post} currentUserId={currentUserId} onOpenComments={() => {}} />
 
@@ -183,6 +219,7 @@ export function ThreadView({
         <div className="px-5 pb-3">
           {replies.map((reply) => {
             const isReplyAuthor = reply.author_id === currentUserId
+            const displayName = reply.nickname ?? 'anon'
             return (
               <div
                 key={reply.id}
@@ -195,7 +232,7 @@ export function ThreadView({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-[14px] font-semibold">anon</span>
+                      <span className="text-[14px] font-semibold">{displayName}</span>
                       <span className="text-[13px] text-[#6b6b6b]">{timeAgo(reply.created_at)}</span>
                     </div>
 
@@ -230,7 +267,6 @@ export function ThreadView({
 
       <div className="h-px bg-[#2a2a2a]" />
 
-      {/* Reply bar */}
       <div className="px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         {error && <p className="mb-2 px-1 text-[13px] text-[#ff4d6d]">{error}</p>}
 

@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, FileText, Flag, Megaphone } from 'lucide-react'
+import { LayoutDashboard, FileText, Flag, Megaphone, Users } from 'lucide-react'
 
 const NAV = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { href: '/admin/posts', label: 'Posts', icon: FileText, exact: false },
   { href: '/admin/reports', label: 'Reports', icon: Flag, exact: false },
   { href: '/admin/post', label: 'Announce', icon: Megaphone, exact: false },
+  { href: '/admin/visitors', label: 'Visitors', icon: Users, exact: false },
 ]
 
 function useIsActive() {
@@ -17,7 +18,6 @@ function useIsActive() {
     exact ? pathname === href : pathname === href || pathname.startsWith(href + '/')
 }
 
-// Desktop: centered in the top bar
 export function AdminTopNav({ reportCount }: { reportCount: number }) {
   const isActive = useIsActive()
   return (
@@ -28,7 +28,7 @@ export function AdminTopNav({ reportCount }: { reportCount: number }) {
           <Link
             key={href}
             href={href}
-            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-[14px] font-medium transition-colors ${
+            className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[14px] font-medium transition-colors ${
               active
                 ? 'bg-[#1e1e1e] text-white'
                 : 'text-[#6b6b6b] hover:bg-[#181818] hover:text-white'
@@ -48,11 +48,10 @@ export function AdminTopNav({ reportCount }: { reportCount: number }) {
   )
 }
 
-// Phones and tablets: fixed to the bottom
 export function AdminBottomNav({ reportCount }: { reportCount: number }) {
   const isActive = useIsActive()
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-4 border-t border-[#2a2a2a] bg-[#101010]/95 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md lg:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-[#2a2a2a] bg-[#101010]/95 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md lg:hidden">
       {NAV.map(({ href, label, icon: Icon, exact }) => {
         const active = isActive(href, exact)
         return (
