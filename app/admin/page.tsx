@@ -35,12 +35,16 @@ function Stat({
 export default async function AdminDashboard() {
   const { supabase } = await requireAdmin()
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
-  const [posts, today, replies, reports, recent] = await Promise.all([
+  const [posts, today, reports, visitors7d, recent] = await Promise.all([
     supabase.from('posts').select('*', { count: 'exact', head: true }),
     supabase.from('posts').select('*', { count: 'exact', head: true }).gte('created_at', since),
-    supabase.from('replies').select('*', { count: 'exact', head: true }),
     supabase.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'open'),
+    supabase
+      .from('user_visits')
+      .select('*', { count: 'exact', head: true })
+      .gte('last_seen_at', since7d),
     supabase.from('posts').select('*').order('created_at', { ascending: false }).limit(8),
   ])
 
@@ -53,7 +57,7 @@ export default async function AdminDashboard() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Total posts" value={posts.count ?? 0} href="/admin/posts" />
         <Stat label="Posts in 24h" value={today.count ?? 0} />
-        <Stat label="Total replies" value={replies.count ?? 0} />
+        <Stat label="Visitors (7d)" value={visitors7d.count ?? 0} href="/admin/visitors" />
         <Stat label="Open reports" value={openReports} href="/admin/reports" alert={openReports > 0} />
       </div>
 
