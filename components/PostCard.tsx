@@ -164,17 +164,19 @@ export function PostCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <span
-                className={`text-[14px] font-semibold ${
-                  isOfficial ? 'text-[#1d9bf0]' : 'text-white'
-                }`}
-              >
+              <span className={`text-[14px] font-semibold ${isOfficial ? 'text-[#1d9bf0]' : 'text-white'}`}>
                 {isOfficial ? 'CampusGist' : (post.author_nickname ?? 'anon')}
               </span>
 
               {isOfficial && (
                 <span className="rounded-full bg-[#1d9bf0]/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#1d9bf0]">
                   Official
+                </span>
+              )}
+
+              {!isOfficial && isAuthor && (
+                <span className="rounded-full bg-[#2a2a2a] px-1.5 py-0.5 text-[10px] font-medium text-[#9a9a9a]">
+                  you
                 </span>
               )}
 

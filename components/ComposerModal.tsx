@@ -110,7 +110,14 @@ export function ComposerModal({
       onPosted()
       onClose()
     } catch (err: any) {
-      setError(err.message || 'Failed to post')
+      const msg: string = err?.message ?? ''
+      if (msg.includes('Rate limit exceeded')) {
+        setError('Slow down — you can post again in about a minute.')
+      } else if (msg.includes('guidelines')) {
+        setError('That content is blocked by the community guidelines.')
+      } else {
+        setError(msg || 'Failed to post')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -250,8 +257,12 @@ export function ComposerModal({
                 </label>
               </div>
 
-              {error && <p className="mt-3 text-[13px] text-[#ff4d6d]">{error}</p>}
-            </div>
+              {error && (
+                <div className="mx-4 mb-2 rounded-xl border border-[#4a1d27] bg-[#2a1218] px-3 py-2 text-[13px] text-[#ff8a9b]">
+                  {error}
+                </div>
+              )}            
+              </div>
           </div>
         </div>
 

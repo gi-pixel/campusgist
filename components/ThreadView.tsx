@@ -140,8 +140,14 @@ export function ThreadView({
       .single()
 
     if (error || !data) {
-      console.error('Reply insert failed:', error)
-      setError('Could not send your reply. Try again.')
+      const msg = error?.message ?? ''
+      if (msg.includes('Rate limit exceeded')) {
+        setError('Slow down — you can reply again in about a minute.')
+      } else if (msg.includes('guidelines')) {
+        setError('That content is blocked by the community guidelines.')
+      } else {
+        setError('Could not send your reply. Try again.')
+      }
       setSending(false)
       return
     }
@@ -233,6 +239,11 @@ export function ThreadView({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-[14px] font-semibold">{displayName}</span>
+                      {isReplyAuthor && (
+                        <span className="rounded-full bg-[#2a2a2a] px-1.5 py-0.5 text-[10px] font-medium text-[#9a9a9a]">
+                          you
+                        </span>
+                      )}
                       <span className="text-[13px] text-[#6b6b6b]">{timeAgo(reply.created_at)}</span>
                     </div>
 
