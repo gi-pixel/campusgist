@@ -6,6 +6,7 @@ import { createPost } from '@/lib/posts'
 import { resolveEmoji } from '@/lib/avatar'
 import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/lib/supabase/types'
+import { ChangeNicknameModal } from './ChangeNicknameModal'
 
 type PostCategory = Database['public']['Enums']['post_category']
 
@@ -40,6 +41,8 @@ export function ComposerModal({
   const [emoji] = useState(() => resolveEmoji())
   const [bannedUntil, setBannedUntil] = useState<string | null>(null)
   const [banReason, setBanReason] = useState<string | null>(null)
+  const [nickname, setNickname] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState(false)
 
   // Preview URLs: created once per file set, revoked on cleanup
   const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files])
@@ -47,7 +50,7 @@ export function ComposerModal({
     return () => previews.forEach((url) => URL.revokeObjectURL(url))
   }, [previews])
 
-  // Reset on close, focus on open, and fetch ban status once per open
+  // Reset on close, focus on open, and fetch profile (nickname + ban) once per open
   useEffect(() => {
     if (open) {
       setTimeout(() => textareaRef.current?.focus(), 50)
@@ -58,10 +61,12 @@ export function ComposerModal({
         if (!user || cancelled) return
         const { data } = await supabase
           .from('profiles')
-          .select('banned_until, ban_reason')
+          .select('banned_until, ban_reason, nickname')
           .eq('user_id', user.id)
           .maybeSingle()
         if (cancelled) return
+
+        setNickname((data?.nickname as string | null) ?? null)
 
         const until = data?.banned_until ?? null
         const permanent = until === 'infinity'
@@ -149,7 +154,6 @@ export function ComposerModal({
       } else if (msg.includes('guidelines')) {
         setError('That content is blocked by the community guidelines.')
       } else if (msg.toLowerCase().includes('row-level security')) {
-        // Banned users hit the RLS insert policy; surface a readable message
         setError('You are currently banned from posting.')
       } else {
         setError(msg || 'Failed to post')
@@ -209,7 +213,7 @@ export function ComposerModal({
             <div className="min-w-0 flex-1">
               {/* Name + topic chip */}
               <div className="relative flex items-center gap-1 text-[14px]">
-                <span className="font-semibold text-white">anon</span>
+                <span className="font-semibold text-white">{nickname ?? 'anon'}</span>
                 <button
                   onClick={() => setTopicOpen((v) => !v)}
                   className="flex items-center gap-0.5 text-[#6b6b6b] transition-colors hover:text-white"
@@ -298,7 +302,7 @@ export function ComposerModal({
           </div>
         </div>
 
-        {/* Alerts (outside the scroll area so they're always visible) */}
+        {/* Alerts */}
         {isBanned && (
           <div className="mx-4 mb-2 rounded-xl border border-[#4a1d27] bg-[#2a1218] px-3 py-2 text-[13px] text-[#ff8a9b]">
             You&apos;re banned{' '}
@@ -319,7 +323,13 @@ export function ComposerModal({
         <div className="flex items-center justify-between px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
           <div className="flex items-center gap-2 text-[13px] text-[#777]">
             <SlidersHorizontal size={17} strokeWidth={1.7} />
-            <span>Anyone can reply</span>
+            <button
+              type="button"
+              onClick={() => setEditingName(true)}
+              className="transition-colors hover:text-white"
+            >
+              Change nickname
+            </button>
           </div>
 
           <div className="flex items-center gap-3">
@@ -344,6 +354,28 @@ export function ComposerModal({
           </div>
         </div>
       </div>
+
+      {/* Change nickname modal — rendered as a sibling of the sheet so it
+          sits above it in the stacking context */}
+      <ChangeNicknameModal
+        open={editingName}
+        currentNickname={nickname ?? ''}
+        onClose={() => {
+          setEditingName(false)
+          // Re-fetch profile so the name shown in the composer updates
+          // without closing the composer.
+          const supabase = createClient()
+          supabase.auth.getUser().then(async ({ data: { user } }) => {
+            if (!user) return
+            const { data } = await supabase
+              .from('profiles')
+              .select('nickname')
+              .eq('user_id', user.id)
+              .maybeSingle()
+            setNickname((data?.nickname as string | null) ?? null)
+          })
+        }}
+      />
     </div>
   )
 }

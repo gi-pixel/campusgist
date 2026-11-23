@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { EMOJIS, storeEmoji } from '@/lib/avatar'
 import { isOnboarded, markOnboarded } from '@/lib/onboarding'
-import { nicknameAvailable, setNickname } from '@/lib/nickname'
-
+import { nicknameAvailable, setNickname, needsNickname } from '@/lib/nickname'
 type Stage = 'welcome' | 'rules' | 'emoji' | 'nickname'
 const STAGES: Stage[] = ['welcome', 'rules', 'emoji', 'nickname']
 
@@ -49,11 +48,24 @@ export function Onboarding() {
   const fromLink = pathname.startsWith('/post/')
   const isAdminArea = pathname.startsWith('/admin') || pathname.startsWith('/login')
 
-  useEffect(() => {
-    if (isAdminArea) return
-    if (isOnboarded()) return
-    setVisible(true)
-  }, [isAdminArea])
+useEffect(() => {
+  if (isAdminArea) return
+  if (isOnboarded()) {
+    // LocalStorage says done, but verify the DB has a nickname
+    needsNickname()
+      .then((needs) => {
+        if (needs) {
+          setStage('nickname') // skip welcome/rules/emoji, go straight to nickname
+          setVisible(true)
+        }
+      })
+      .catch(() => {
+        // DB check failed — fall back to localStorage decision
+      })
+    return
+  }
+  setVisible(true)
+}, [isAdminArea])
 
   if (!visible || isAdminArea) return null
 

@@ -76,7 +76,11 @@ export function VisitorTable({ rows }: { rows: Row[] }) {
                     {new Date(row.last_seen_at).toLocaleString()}
                   </td>
                   <td className="px-4 py-2.5 text-right">
-                    <BanButton userId={row.user_id} bannedUntil={row.bannedUntil} />
+                    <BanButton
+                        userId={row.user_id}
+                        bannedUntil={row.bannedUntil}
+                        nickname={row.nickname}
+                        />
                   </td>
                 </tr>
               ))}
