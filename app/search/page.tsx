@@ -74,13 +74,6 @@ export default function SearchPage() {
     }
   }
 
-  function handleReplyCountChange(postId: string, count: number) {
-    const patch = (list: Post[]) =>
-      list.map((p) => (p.id === postId ? { ...p, reply_count: count } : p))
-    setPosts(patch)
-    setServerResults((prev) => (prev ? patch(prev) : prev))
-    setSelectedPost((cur) => (cur && cur.id === postId ? { ...cur, reply_count: count } : cur))
-  }
 
   const hasQuery = query.trim().length > 0
 
@@ -176,9 +169,7 @@ export default function SearchPage() {
 
       <ThreadModal
         post={selectedPost}
-        onClose={() => setSelectedPost(null)}
-        onReplyCountChange={handleReplyCountChange}
-      />
+        onClose={() => setSelectedPost(null)}      />
     </div>
   )
 }
