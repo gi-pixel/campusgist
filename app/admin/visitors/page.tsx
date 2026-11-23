@@ -39,6 +39,19 @@ export default async function VisitorsPage({
   const list = listRes.data ?? []
   const total = listRes.count ?? 0
 
+  // Fetch nicknames for the users on this page
+  const userIds = list.map((r) => r.user_id)
+  const { data: profiles } = userIds.length
+    ? await supabase
+        .from('profiles')
+        .select('user_id, nickname')
+        .in('user_id', userIds)
+    : { data: [] as { user_id: string; nickname: string | null }[] }
+
+  const nicknames = new Map(
+    (profiles ?? []).map((p) => [p.user_id, p.nickname])
+  )
+
   return (
     <div>
       <PageHeader title="Visitors" description={`Users seen in the last ${days} days.`} />
@@ -78,19 +91,26 @@ export default async function VisitorsPage({
               </tr>
             </thead>
             <tbody>
-              {list.map((row) => (
-                <tr key={row.user_id} className="border-t border-[#2a2a2a]">
-                  <td className="px-4 py-2.5 font-mono text-[12px] text-white">
-                    {row.user_id.slice(0, 8)}…
-                  </td>
-                  <td className="px-4 py-2.5 text-[#9a9a9a]" suppressHydrationWarning>
-                    {new Date(row.first_seen_at).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-2.5 text-[#9a9a9a]" suppressHydrationWarning>
-                    {new Date(row.last_seen_at).toLocaleString()}
-                  </td>
-                </tr>
-              ))}
+              {list.map((row) => {
+                const nickname = nicknames.get(row.user_id)
+                return (
+                  <tr key={row.user_id} className="border-t border-[#2a2a2a]">
+                    <td className="px-4 py-2.5 text-white">
+                      {nickname ?? (
+                        <span className="font-mono text-[12px] text-[#6b6b6b]">
+                          anon · {row.user_id.slice(0, 8)}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-[#9a9a9a]" suppressHydrationWarning>
+                      {new Date(row.first_seen_at).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2.5 text-[#9a9a9a]" suppressHydrationWarning>
+                      {new Date(row.last_seen_at).toLocaleString()}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         )}
