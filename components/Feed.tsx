@@ -107,10 +107,7 @@ export function Feed({ refreshKey }: { refreshKey: number }) {
     }
   }, [])
 
-  function handleReplyCountChange(postId: string, count: number) {
-    setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, reply_count: count } : p)))
-    setSelectedPost((cur) => (cur && cur.id === postId ? { ...cur, reply_count: count } : cur))
-  }
+
 
   if (!userId || !initialLoaded) {
     return <FeedSkeleton />
@@ -160,7 +157,6 @@ export function Feed({ refreshKey }: { refreshKey: number }) {
       <ThreadModal
         post={selectedPost}
         onClose={() => setSelectedPost(null)}
-        onReplyCountChange={handleReplyCountChange}
       />
     </div>
   )

@@ -10,11 +10,9 @@ import type { Post } from '@/lib/feed'
 export function ThreadModal({
   post,
   onClose,
-  onReplyCountChange,
 }: {
   post: Post | null
   onClose: () => void
-  onReplyCountChange: (postId: string, count: number) => void
 }) {
   const currentUserId = useCurrentUserId()
   const { sheetRef, backdropRef } = useSwipeToClose(!!post, onClose)
@@ -75,7 +73,6 @@ export function ThreadModal({
           key={post.id}
           post={post}
           currentUserId={currentUserId}
-          onReplyCountChange={onReplyCountChange}
         />
       </div>
     </div>

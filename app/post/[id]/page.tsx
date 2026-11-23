@@ -109,9 +109,6 @@ export default function PostPage() {
             key={post.id}
             post={post}
             currentUserId={currentUserId}
-            onReplyCountChange={(_, count) =>
-              setPost((p) => (p ? { ...p, reply_count: count } : p))
-            }
           />
         )}
       </div>
