@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { ImagePlus, X, ChevronRight, Check, SlidersHorizontal } from 'lucide-react'
 import { createPost } from '@/lib/posts'
 import { resolveEmoji } from '@/lib/avatar'
+import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/lib/supabase/types'
 
 type PostCategory = Database['public']['Enums']['post_category']
@@ -37,6 +38,8 @@ export function ComposerModal({
   const [vp, setVp] = useState<{ top: number; height: number } | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [emoji] = useState(() => resolveEmoji())
+  const [bannedUntil, setBannedUntil] = useState<string | null>(null)
+  const [banReason, setBanReason] = useState<string | null>(null)
 
   // Preview URLs: created once per file set, revoked on cleanup
   const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files])
@@ -44,10 +47,33 @@ export function ComposerModal({
     return () => previews.forEach((url) => URL.revokeObjectURL(url))
   }, [previews])
 
-  // Reset on close, focus on open
+  // Reset on close, focus on open, and fetch ban status once per open
   useEffect(() => {
     if (open) {
       setTimeout(() => textareaRef.current?.focus(), 50)
+
+      let cancelled = false
+      const supabase = createClient()
+      supabase.auth.getUser().then(async ({ data: { user } }) => {
+        if (!user || cancelled) return
+        const { data } = await supabase
+          .from('profiles')
+          .select('banned_until, ban_reason')
+          .eq('user_id', user.id)
+          .maybeSingle()
+        if (cancelled) return
+
+        const until = data?.banned_until ?? null
+        const permanent = until === 'infinity'
+        const active = permanent || (until != null && new Date(until) > new Date())
+
+        setBannedUntil(active ? until : null)
+        setBanReason(active ? data?.ban_reason ?? null : null)
+      })
+
+      return () => {
+        cancelled = true
+      }
     } else {
       setContent('')
       setFiles([])
@@ -55,6 +81,8 @@ export function ComposerModal({
       setTopicChosen(false)
       setTopicOpen(false)
       setError(null)
+      setBannedUntil(null)
+      setBanReason(null)
     }
   }, [open])
 
@@ -97,7 +125,12 @@ export function ComposerModal({
     el.style.height = `${el.scrollHeight}px`
   }, [content, open])
 
-  const canPost = content.trim().length > 0 && content.length <= MAX_LENGTH && !submitting
+  const isBanned = !!bannedUntil
+  const canPost =
+    content.trim().length > 0 &&
+    content.length <= MAX_LENGTH &&
+    !submitting &&
+    !isBanned
   const remaining = MAX_LENGTH - content.length
   const categoryLabel = CATEGORIES.find((c) => c.value === category)?.label ?? 'General'
 
@@ -115,6 +148,9 @@ export function ComposerModal({
         setError('Slow down — you can post again in about a minute.')
       } else if (msg.includes('guidelines')) {
         setError('That content is blocked by the community guidelines.')
+      } else if (msg.toLowerCase().includes('row-level security')) {
+        // Banned users hit the RLS insert policy; surface a readable message
+        setError('You are currently banned from posting.')
       } else {
         setError(msg || 'Failed to post')
       }
@@ -215,7 +251,8 @@ export function ComposerModal({
                 placeholder="What's new?"
                 maxLength={MAX_LENGTH}
                 rows={2}
-                className="mt-0.5 min-h-[56px] w-full resize-none bg-transparent text-[16px] leading-snug text-white outline-none placeholder:text-[#6b6b6b]"
+                disabled={isBanned}
+                className="mt-0.5 min-h-[56px] w-full resize-none bg-transparent text-[16px] leading-snug text-white outline-none placeholder:text-[#6b6b6b] disabled:opacity-50"
               />
 
               {/* Image previews */}
@@ -252,19 +289,31 @@ export function ComposerModal({
                     accept="image/*"
                     multiple
                     onChange={handleFiles}
+                    disabled={isBanned}
                     className="hidden"
                   />
                 </label>
               </div>
-
-              {error && (
-                <div className="mx-4 mb-2 rounded-xl border border-[#4a1d27] bg-[#2a1218] px-3 py-2 text-[13px] text-[#ff8a9b]">
-                  {error}
-                </div>
-              )}            
-              </div>
+            </div>
           </div>
         </div>
+
+        {/* Alerts (outside the scroll area so they're always visible) */}
+        {isBanned && (
+          <div className="mx-4 mb-2 rounded-xl border border-[#4a1d27] bg-[#2a1218] px-3 py-2 text-[13px] text-[#ff8a9b]">
+            You&apos;re banned{' '}
+            {bannedUntil === 'infinity'
+              ? 'permanently'
+              : `until ${new Date(bannedUntil!).toLocaleDateString()}`}.
+            {banReason && <> Reason: {banReason}</>}
+          </div>
+        )}
+
+        {error && (
+          <div className="mx-4 mb-2 rounded-xl border border-[#4a1d27] bg-[#2a1218] px-3 py-2 text-[13px] text-[#ff8a9b]">
+            {error}
+          </div>
+        )}
 
         {/* Footer */}
         <div className="flex items-center justify-between px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">

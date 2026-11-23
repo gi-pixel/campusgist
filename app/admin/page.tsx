@@ -68,6 +68,15 @@ export default async function AdminDashboard() {
         </Link>
       </div>
 
+      <div className="mt-4">
+        <Link
+          href="/admin/insights"
+          className="inline-block rounded-full border border-[#2a2a2a] px-4 py-1.5 text-[13px] font-semibold text-white transition hover:bg-[#222]"
+        >
+          View insights →
+        </Link>
+      </div>
+
       <AdminPostList initialPosts={recent.data ?? []} emptyText="No posts yet." />
     </div>
   )

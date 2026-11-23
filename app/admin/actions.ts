@@ -92,3 +92,51 @@ export async function createAnnouncementAdmin(
   revalidatePath('/admin/posts')
   return { ok: true }
 }
+
+export async function banUserAdmin(
+  userId: string,
+  days: number | null,
+  reason?: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { supabase } = await requireAdmin()
+
+  if (userId === (await supabase.auth.getUser()).data.user?.id) {
+    return { ok: false, error: 'You cannot ban yourself' }
+  }
+
+  // RPC expects days as int; use 0 for permanent (the function treats <=0 as infinity)
+  const { error } = await supabase.rpc('ban_user', {
+    p_user_id: userId,
+    p_days: days ?? 0,
+    p_reason: reason ?? undefined,
+  })
+
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/admin/visitors')
+  revalidatePath('/admin/reports')
+  return { ok: true }
+}
+
+export async function unbanUserAdmin(userId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { supabase } = await requireAdmin()
+
+  const { error } = await supabase.rpc('unban_user', { p_user_id: userId })
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/admin/visitors')
+  revalidatePath('/admin/reports')
+  return { ok: true }
+}
+
+export async function fetchBannedStatus(userIds: string[]) {
+  const { supabase } = await requireAdmin()
+  if (userIds.length === 0) return { data: [], error: null }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('user_id, banned_until, ban_reason')
+    .in('user_id', userIds)
+
+  return { data: data ?? [], error }
+}

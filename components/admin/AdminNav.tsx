@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, FileText, Flag, Megaphone, Users } from 'lucide-react'
+import { LayoutDashboard, FileText, Flag, Megaphone, Users, BarChart3 } from 'lucide-react'
 
 const NAV = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
@@ -10,6 +10,7 @@ const NAV = [
   { href: '/admin/reports', label: 'Reports', icon: Flag, exact: false },
   { href: '/admin/post', label: 'Announce', icon: Megaphone, exact: false },
   { href: '/admin/visitors', label: 'Visitors', icon: Users, exact: false },
+  { href: '/admin/insights', label: 'Insights', icon: BarChart3, exact: false },
 ]
 
 function useIsActive() {
@@ -51,7 +52,7 @@ export function AdminTopNav({ reportCount }: { reportCount: number }) {
 export function AdminBottomNav({ reportCount }: { reportCount: number }) {
   const isActive = useIsActive()
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-[#2a2a2a] bg-[#101010]/95 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md lg:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-6 border-t border-[#2a2a2a] bg-[#101010]/95 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md lg:hidden">
       {NAV.map(({ href, label, icon: Icon, exact }) => {
         const active = isActive(href, exact)
         return (

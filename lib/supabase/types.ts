@@ -117,22 +117,36 @@ export type Database = {
           like_count?: number
           reply_count?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "posts_author_profile_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       profiles: {
         Row: {
+          ban_reason: string | null
+          banned_until: string | null
           created_at: string
           nickname: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          ban_reason?: string | null
+          banned_until?: string | null
           created_at?: string
           nickname?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          ban_reason?: string | null
+          banned_until?: string | null
           created_at?: string
           nickname?: string | null
           updated_at?: string
@@ -172,6 +186,13 @@ export type Database = {
           post_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "replies_author_profile_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "replies_parent_id_fkey"
             columns: ["parent_id"]
@@ -301,7 +322,15 @@ export type Database = {
           like_count: number | null
           reply_count: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "posts_author_profile_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -309,11 +338,23 @@ export type Database = {
         Args: { p_id: string; p_reason?: string }
         Returns: undefined
       }
+      ban_user: {
+        Args: { p_days: number; p_reason?: string; p_user_id: string }
+        Returns: undefined
+      }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
       nickname_available: { Args: { p_nickname: string }; Returns: boolean }
       set_nickname: { Args: { p_nickname: string }; Returns: undefined }
+      top_posters: {
+        Args: { p_days?: number; p_limit?: number }
+        Returns: {
+          nickname: string
+          post_count: number
+        }[]
+      }
       touch_visit: { Args: never; Returns: undefined }
+      unban_user: { Args: { p_user_id: string }; Returns: undefined }
       visitor_stats: {
         Args: { p_days?: number }
         Returns: {
