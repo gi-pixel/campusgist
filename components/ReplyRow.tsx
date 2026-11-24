@@ -75,10 +75,10 @@ export function ReplyRow({
             <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100">
               <button
                 onClick={() => onReply(reply.id, displayName)}
-                aria-label="Reply"
-                className="flex h-6 w-6 items-center justify-center rounded-full text-[#6b6b6b] transition-colors hover:bg-[#222] hover:text-white"
+                className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-[#6b6b6b] transition-colors hover:bg-[#222] hover:text-white"
               >
-                <ReplyIcon size={13} />
+                <ReplyIcon size={11} />
+                Reply
               </button>
               {isMine ? (
                 <button
