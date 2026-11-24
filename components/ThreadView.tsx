@@ -1,32 +1,13 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Trash2, Flag } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { PostCard } from './PostCard'
+import { ReplyRow } from './ReplyRow'
 import type { Post } from '@/lib/feed'
-import { resolveEmoji, emojiForAuthor } from '@/lib/avatar'
-
-function timeAgo(dateStr?: string) {
-  if (!dateStr) return 'now'
-  const seconds = Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000))
-  if (seconds < 60) return 'now'
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h`
-  return `${Math.floor(hours / 24)}d`
-}
-
-type Reply = {
-  id: string
-  post_id: string
-  author_id: string
-  content: string
-  created_at: string
-  avatar_emoji?: string | null
-  nickname?: string | null
-}
+import { resolveEmoji } from '@/lib/avatar'
+import { buildReplyTree, type RawReply } from '@/lib/replies'
+import { X } from 'lucide-react'
 
 export function ThreadView({
   post,
@@ -36,21 +17,23 @@ export function ThreadView({
   currentUserId: string
 }) {
   const supabase = useMemo(() => createClient(), [])
-  const [replies, setReplies] = useState<Reply[]>([])
+  const [rawReplies, setRawReplies] = useState<RawReply[]>([])
   const [content, setContent] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
-  const repliesRef = useRef<Reply[]>([])
+  const repliesRef = useRef<RawReply[]>([])
   const [emoji] = useState(() => resolveEmoji())
   const myNickname = useRef<string | null>(null)
   const postId = post.id
 
-  useEffect(() => {
-    repliesRef.current = replies
-  }, [replies])
+  // The reply currently being replied to (for nested reply mode)
+  const [replyTo, setReplyTo] = useState<{ id: string; nickname: string } | null>(null)
 
-  // Cache your own nickname once so submitReply never awaits a profile lookup
+  useEffect(() => {
+    repliesRef.current = rawReplies
+  }, [rawReplies])
+
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
@@ -73,13 +56,13 @@ export function ThreadView({
         .eq('post_id', postId)
         .order('created_at', { ascending: true })
       if (error || cancelled || !data) return
-      const fetched: Reply[] = data.map((r: any) => ({
+
+      const fetched: RawReply[] = data.map((r: any) => ({
         ...r,
         nickname: r.profiles?.nickname ?? null,
       }))
-      // Merge: keep anything realtime already added, then sort
-      setReplies((prev) => {
-        const byId = new Map<string, Reply>()
+      setRawReplies((prev) => {
+        const byId = new Map<string, RawReply>()
         for (const r of fetched) byId.set(r.id, r)
         for (const r of prev) if (!byId.has(r.id)) byId.set(r.id, r)
         return [...byId.values()].sort(
@@ -96,8 +79,8 @@ export function ThreadView({
         (payload) => {
           const raw = payload.new as any
           if (repliesRef.current.some((r) => r.id === raw.id)) return
-          const incoming: Reply = { ...raw, nickname: null }
-          setReplies((prev) =>
+          const incoming: RawReply = { ...raw, nickname: null }
+          setRawReplies((prev) =>
             prev.some((r) => r.id === incoming.id) ? prev : [...prev, incoming]
           )
           if (raw.author_id) {
@@ -108,7 +91,7 @@ export function ThreadView({
               .maybeSingle()
               .then(({ data: prof }) => {
                 if (prof?.nickname) {
-                  setReplies((prev) =>
+                  setRawReplies((prev) =>
                     prev.map((r) =>
                       r.id === incoming.id && !r.nickname
                         ? { ...r, nickname: prof.nickname }
@@ -124,12 +107,10 @@ export function ThreadView({
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'replies' },
         (payload) => {
-          setReplies((prev) => prev.filter((r) => r.id !== payload.old.id))
+          setRawReplies((prev) => prev.filter((r) => r.id !== payload.old.id))
         }
       )
       .subscribe((status) => {
-        // Fetch after subscribing, so realtime events during the fetch are
-        // not overwritten when the fetch resolves.
         if (status === 'SUBSCRIBED') fetchReplies()
       })
 
@@ -138,6 +119,8 @@ export function ThreadView({
       supabase.removeChannel(channel)
     }
   }, [postId, supabase])
+
+  const tree = useMemo(() => buildReplyTree(rawReplies), [rawReplies])
 
   async function submitReply() {
     if (!content.trim() || sending) return
@@ -161,6 +144,7 @@ export function ThreadView({
         author_id: user.id,
         content: content.trim(),
         avatar_emoji: emoji,
+        parent_id: replyTo?.id ?? null,
       })
       .select()
       .single()
@@ -171,6 +155,8 @@ export function ThreadView({
         setError('Slow down — you can reply again in about a minute.')
       } else if (msg.includes('guidelines')) {
         setError('That content is blocked by the community guidelines.')
+      } else if (msg.toLowerCase().includes('row-level security')) {
+        setError('You are currently banned from replying.')
       } else {
         setError('Could not send your reply. Try again.')
       }
@@ -179,21 +165,22 @@ export function ThreadView({
     }
 
     setContent('')
+    setReplyTo(null)
     if (inputRef.current) inputRef.current.style.height = 'auto'
 
-    // Append immediately, no await. The realtime echo arrives later and is
-    // deduped by the repliesRef check.
-    const mine: Reply = { ...(data as any), nickname: myNickname.current }
-    setReplies((prev) => (prev.some((r) => r.id === mine.id) ? prev : [...prev, mine]))
+    const mine: RawReply = { ...(data as any), nickname: myNickname.current }
+    setRawReplies((prev) =>
+      prev.some((r) => r.id === mine.id) ? prev : [...prev, mine]
+    )
     setSending(false)
   }
 
   async function handleDeleteReply(replyId: string) {
-    if (!confirm('Delete this reply?')) return
+    if (!confirm('Delete this reply? Nested replies will also be removed.')) return
     setError(null)
 
     const previous = repliesRef.current
-    setReplies((prev) => prev.filter((r) => r.id !== replyId))
+    setRawReplies((prev) => prev.filter((r) => r.id !== replyId))
 
     const { data, error } = await supabase
       .from('replies')
@@ -203,9 +190,8 @@ export function ThreadView({
 
     if (error || !data || data.length === 0) {
       console.error('Delete reply failed:', error ?? 'no rows deleted')
-      setReplies(previous)
+      setRawReplies(previous)
       setError('Could not delete that reply.')
-      return
     }
   }
 
@@ -228,8 +214,13 @@ export function ThreadView({
     }
   }
 
+  function handleReplyTo(parentId: string, parentNickname: string) {
+    setReplyTo({ id: parentId, nickname: parentNickname })
+    setTimeout(() => inputRef.current?.focus(), 50)
+  }
+
   const canReply = content.trim().length > 0 && !sending
-  const replyCount = replies.length
+  const totalReplies = rawReplies.length
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -239,66 +230,54 @@ export function ThreadView({
         <div className="h-px bg-[#2a2a2a]" />
 
         <div className="px-5 pb-1 pt-4 text-[14px] font-semibold text-[#9a9a9a]">
-          {replyCount > 0 ? `${replyCount} ${replyCount === 1 ? 'Reply' : 'Replies'}` : 'Replies'}
+          {totalReplies > 0
+            ? `${totalReplies} ${totalReplies === 1 ? 'Reply' : 'Replies'}`
+            : 'Replies'}
         </div>
 
-        <div className="px-5 pb-3">
-          {replies.map((reply) => {
-            const isReplyAuthor = reply.author_id === currentUserId
-            const displayName = reply.nickname ?? 'anon'
-            return (
-              <div
-                key={reply.id}
-                className="group flex gap-3 border-b border-[#2a2a2a] py-4 last:border-0"
-              >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#2a2a2a] text-base">
-                  {reply.avatar_emoji ?? (isReplyAuthor ? emoji : emojiForAuthor(reply.author_id))}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[14px] font-semibold">{displayName}</span>
-                      {isReplyAuthor && (
-                        <span className="rounded-full bg-[#2a2a2a] px-1.5 py-0.5 text-[10px] font-medium text-[#9a9a9a]">
-                          you
-                        </span>
-                      )}
-                      <span className="text-[13px] text-[#6b6b6b]">{timeAgo(reply.created_at)}</span>
-                    </div>
-
-                    {isReplyAuthor ? (
-                      <button
-                        onClick={() => handleDeleteReply(reply.id)}
-                        aria-label="Delete reply"
-                        className="text-[#6b6b6b] transition-colors hover:text-[#ff4d6d] sm:opacity-0 sm:group-hover:opacity-100"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleReportReply(reply.id)}
-                        aria-label="Report reply"
-                        className="text-[#6b6b6b] transition-colors hover:text-[#ff4d6d] sm:opacity-0 sm:group-hover:opacity-100"
-                      >
-                        <Flag size={15} />
-                      </button>
-                    )}
-                  </div>
-
-                  <p className="mt-0.5 whitespace-pre-wrap break-words text-[14px] leading-snug text-[#f3f3f3]">
-                    {reply.content}
-                  </p>
-                </div>
-              </div>
-            )
-          })}
+        <div className="pb-3">
+          {tree.length === 0 ? (
+            <p className="px-5 py-6 text-center text-[13px] text-[#6b6b6b]">
+              No replies yet. Start the conversation.
+            </p>
+          ) : (
+            <div className="px-3">
+              {tree.map((node) => (
+                <ReplyRow
+                  key={node.id}
+                  reply={node}
+                  currentUserId={currentUserId}
+                  myEmoji={emoji}
+                  onDelete={handleDeleteReply}
+                  onReport={handleReportReply}
+                  onReply={handleReplyTo}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       <div className="h-px bg-[#2a2a2a]" />
 
+      {/* Reply bar */}
       <div className="px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        {/* Replying-to indicator */}
+        {replyTo && (
+          <div className="mb-2 flex items-center justify-between rounded-lg bg-[#222] px-3 py-1.5 text-[12px] text-[#9a9a9a]">
+            <span>
+              Replying to <span className="font-semibold text-white">{replyTo.nickname}</span>
+            </span>
+            <button
+              onClick={() => setReplyTo(null)}
+              className="text-[#6b6b6b] transition-colors hover:text-white"
+              aria-label="Cancel reply"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
         {error && <p className="mb-2 px-1 text-[13px] text-[#ff4d6d]">{error}</p>}
 
         <div className="flex items-end gap-3">
@@ -310,7 +289,7 @@ export function ThreadView({
             ref={inputRef}
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="Reply to thread…"
+            placeholder={replyTo ? `Reply to ${replyTo.nickname}…` : 'Reply to thread…'}
             rows={1}
             className="max-h-32 flex-1 resize-none rounded-2xl bg-[#222] px-4 py-2.5 text-[14px] text-white outline-none placeholder:text-[#6b6b6b]"
             onInput={(e) => {
@@ -322,6 +301,9 @@ export function ThreadView({
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()
                 submitReply()
+              }
+              if (e.key === 'Escape' && replyTo) {
+                setReplyTo(null)
               }
             }}
           />
