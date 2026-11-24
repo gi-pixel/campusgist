@@ -3,17 +3,17 @@
 import { useState } from 'react'
 import { Feed } from '@/components/Feed'
 import { ComposerModal } from '@/components/ComposerModal'
-import { OnlineCounter } from '@/components/OnlineCounter'
+import { CompactOnlineCounter } from '@/components/OnlineCounter'
 import {
   HomeIcon,
   SearchIcon,
   ComposeIcon,
-  HeartIcon,
   UserIcon,
   ThreadsLogo,
 } from '@/components/icons'
 import { useRouter } from 'next/navigation'
 import { Wordmark } from '@/components/Wordmark'
+import { DesktopNotificationsButton, MobileNotificationsButton } from '@/components/NotificationsNavButton'
 
 export default function Page() {
   const router = useRouter()
@@ -38,7 +38,7 @@ export default function Page() {
             <ComposeIcon className="h-[22px] w-[22px]" />
           </NavButton>
           <NavButton label="Activity">
-            <HeartIcon className="h-[26px] w-[26px]" />
+            <DesktopNotificationsButton />
           </NavButton>
           <NavButton label="Profile">
             <UserIcon className="h-[26px] w-[26px]" />
@@ -47,7 +47,7 @@ export default function Page() {
 
         <div className="flex justify-end">
           <div className="flex items-center gap-2 rounded-full border border-[#2a2a2a] bg-[#181818] px-3 py-1.5 text-[13px] text-[#9a9a9a]">
-            <OnlineCounter />
+            <CompactOnlineCounter />
           </div>
         </div>
       </header>
@@ -86,25 +86,18 @@ export default function Page() {
     <nav className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 items-center bg-[#101010]/95 px-3 pb-5 pt-2.5 backdrop-blur-md md:hidden">
       <HomeIcon filled className="h-[22px] w-[22px] justify-self-center text-white" />
 
-      <button
-        onClick={() => router.push('/search')}
-        aria-label="Search"
-        className="justify-self-center"
-      >
+      <button onClick={() => router.push('/search')} aria-label="Search" className="justify-self-center">
         <SearchIcon className="h-[22px] w-[22px] text-[#4d4d4d]" />
       </button>
 
-      <button
-        onClick={() => setComposerOpen(true)}
-        aria-label="New post"
-        className="justify-self-center rounded-xl bg-[#1e1e1e] px-4 py-2 text-[#9a9a9a]"
-      >
+      <button onClick={() => setComposerOpen(true)} aria-label="New post" className="justify-self-center rounded-xl bg-[#1e1e1e] px-4 py-2 text-[#9a9a9a]">
         <ComposeIcon className="h-5 w-5" />
       </button>
 
-      {/* Online users: takes the place of the heart and profile buttons */}
-      <div className="col-span-2 flex items-center justify-center justify-self-center rounded-full bg-[#1e1e1e] px-4 py-2 text-[13px] text-[#9a9a9a]">
-        <OnlineCounter />
+      <MobileNotificationsButton />
+
+      <div className="flex items-center justify-center justify-self-center rounded-full bg-[#1e1e1e] px-3 py-2">
+        <CompactOnlineCounter />
       </div>
     </nav>
 
