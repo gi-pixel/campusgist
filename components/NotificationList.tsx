@@ -5,10 +5,13 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fetchNotifications, markAllRead, type Notification } from '@/lib/notifications'
 import { NotificationRow } from './NotificationRow'
+import { ThreadModal } from './ThreadModal'
+import type { Post } from '@/lib/feed'
 
 export function NotificationList() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const router = useRouter()
 
   // Initial fetch
@@ -71,6 +74,12 @@ export function NotificationList() {
     }
   }, [])
 
+  function handleSelect(notification: Notification) {
+    if (notification.post) {
+      setSelectedPost(notification.post)
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-3 p-4" aria-hidden>
@@ -105,8 +114,10 @@ export function NotificationList() {
   return (
     <div>
       {notifications.map((n) => (
-        <NotificationRow key={n.id} notification={n} />
+        <NotificationRow key={n.id} notification={n} onSelect={handleSelect} />
       ))}
+
+      <ThreadModal post={selectedPost} onClose={() => setSelectedPost(null)} />
     </div>
   )
 }
