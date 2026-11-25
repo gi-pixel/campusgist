@@ -9,6 +9,8 @@ import { resolveEmoji } from '@/lib/avatar'
 import { buildReplyTree, type RawReply } from '@/lib/replies'
 import { X } from 'lucide-react'
 
+const PAGE_SIZE = 20
+
 export function ThreadView({
   post,
   currentUserId,
@@ -27,7 +29,11 @@ export function ThreadView({
   const myNickname = useRef<string | null>(null)
   const postId = post.id
 
-  // The reply currently being replied to (for nested reply mode)
+  // Lazy loading states
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [totalCount, setTotalCount] = useState(post.reply_count || 0)
+
   const [replyTo, setReplyTo] = useState<{ id: string; nickname: string } | null>(null)
 
   useEffect(() => {
@@ -50,25 +56,36 @@ export function ThreadView({
     let cancelled = false
 
     async function fetchReplies() {
+      // Fetch the *latest* replies for the initial load so the user sees the most recent action.
+      // We fetch them descending, then reverse them so the tree builds chronologically.
       const { data, error } = await supabase
         .from('replies')
         .select('*, profiles:author_id ( nickname )')
         .eq('post_id', postId)
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
+        .limit(PAGE_SIZE)
+
       if (error || cancelled || !data) return
 
       const fetched: RawReply[] = data.map((r: any) => ({
         ...r,
         nickname: r.profiles?.nickname ?? null,
-      }))
+      })).reverse() // Reverse back to chronological order
+
       setRawReplies((prev) => {
         const byId = new Map<string, RawReply>()
+        // Keep anything already fetched in state (in case realtime added a brand new reply)
+        for (const r of prev) byId.set(r.id, r)
+        // Add the paginated batch
         for (const r of fetched) byId.set(r.id, r)
-        for (const r of prev) if (!byId.has(r.id)) byId.set(r.id, r)
+        
         return [...byId.values()].sort(
           (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)
         )
       })
+
+      // If we got a full page, there might be more
+      setHasMore(data.length === PAGE_SIZE)
     }
 
     const channel = supabase
@@ -79,10 +96,13 @@ export function ThreadView({
         (payload) => {
           const raw = payload.new as any
           if (repliesRef.current.some((r) => r.id === raw.id)) return
+          
           const incoming: RawReply = { ...raw, nickname: null }
           setRawReplies((prev) =>
             prev.some((r) => r.id === incoming.id) ? prev : [...prev, incoming]
           )
+          setTotalCount(c => c + 1)
+
           if (raw.author_id) {
             supabase
               .from('profiles')
@@ -108,6 +128,7 @@ export function ThreadView({
         { event: 'DELETE', schema: 'public', table: 'replies' },
         (payload) => {
           setRawReplies((prev) => prev.filter((r) => r.id !== payload.old.id))
+          setTotalCount(c => Math.max(0, c - 1))
         }
       )
       .subscribe((status) => {
@@ -119,6 +140,44 @@ export function ThreadView({
       supabase.removeChannel(channel)
     }
   }, [postId, supabase])
+
+  async function loadMore() {
+    if (loadingMore || rawReplies.length === 0) return
+    setLoadingMore(true)
+
+    // Find the oldest reply we currently have to use as a cursor
+    const oldest = rawReplies[0].created_at
+
+    const { data, error } = await supabase
+      .from('replies')
+      .select('*, profiles:author_id ( nickname )')
+      .eq('post_id', postId)
+      .lt('created_at', oldest)
+      .order('created_at', { ascending: false })
+      .limit(PAGE_SIZE)
+
+    if (error || !data) {
+      setLoadingMore(false)
+      return
+    }
+
+    const fetched: RawReply[] = data.map((r: any) => ({
+      ...r,
+      nickname: r.profiles?.nickname ?? null,
+    }))
+
+    setRawReplies((prev) => {
+      const byId = new Map<string, RawReply>()
+      for (const r of prev) byId.set(r.id, r)
+      for (const r of fetched) byId.set(r.id, r)
+      return [...byId.values()].sort(
+        (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)
+      )
+    })
+
+    setHasMore(data.length === PAGE_SIZE)
+    setLoadingMore(false)
+  }
 
   const tree = useMemo(() => buildReplyTree(rawReplies), [rawReplies])
 
@@ -168,10 +227,12 @@ export function ThreadView({
     setReplyTo(null)
     if (inputRef.current) inputRef.current.style.height = 'auto'
 
+    // Optimistically append it. If it's a nested reply, the tree will place it properly.
     const mine: RawReply = { ...(data as any), nickname: myNickname.current }
     setRawReplies((prev) =>
       prev.some((r) => r.id === mine.id) ? prev : [...prev, mine]
     )
+    setTotalCount(c => c + 1)
     setSending(false)
   }
 
@@ -192,6 +253,8 @@ export function ThreadView({
       console.error('Delete reply failed:', error ?? 'no rows deleted')
       setRawReplies(previous)
       setError('Could not delete that reply.')
+    } else {
+      setTotalCount(c => Math.max(0, c - 1))
     }
   }
 
@@ -220,7 +283,6 @@ export function ThreadView({
   }
 
   const canReply = content.trim().length > 0 && !sending
-  const totalReplies = rawReplies.length
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -230,12 +292,25 @@ export function ThreadView({
         <div className="h-px bg-[#2a2a2a]" />
 
         <div className="px-5 pb-1 pt-4 text-[14px] font-semibold text-[#9a9a9a]">
-          {totalReplies > 0
-            ? `${totalReplies} ${totalReplies === 1 ? 'Reply' : 'Replies'}`
+          {totalCount > 0
+            ? `${totalCount} ${totalCount === 1 ? 'Reply' : 'Replies'}`
             : 'Replies'}
         </div>
 
         <div className="pb-3">
+          {/* Load More Button (Top) */}
+          {hasMore && rawReplies.length > 0 && (
+            <div className="px-5 pb-3 pt-1">
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="text-[12px] font-semibold text-[#1d9bf0] transition-colors hover:text-[#4bb1f5] disabled:opacity-50"
+              >
+                {loadingMore ? 'Loading earlier replies…' : 'Load earlier replies'}
+              </button>
+            </div>
+          )}
+
           {tree.length === 0 ? (
             <p className="px-5 py-6 text-center text-[13px] text-[#6b6b6b]">
               No replies yet. Start the conversation.
@@ -262,7 +337,6 @@ export function ThreadView({
 
       {/* Reply bar */}
       <div className="px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        {/* Replying-to indicator */}
         {replyTo && (
           <div className="mb-2 flex items-center justify-between rounded-lg bg-[#222] px-3 py-1.5 text-[12px] text-[#9a9a9a]">
             <span>
